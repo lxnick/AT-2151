@@ -1,0 +1,1 @@
+nrfjprog -f nrf52 --program _build/nrf52832_xxaa.hex --sectorerase --verify
