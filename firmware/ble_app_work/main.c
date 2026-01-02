@@ -82,9 +82,10 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+#include "ble_motion_service.h"
 
-#define DEVICE_NAME                     "Nordic_Template"                       /**< Name of device. Will be included in the advertising data. */
-#define MANUFACTURER_NAME               "NordicSemiconductor"                   /**< Manufacturer. Will be passed to Device Information Service. */
+#define DEVICE_NAME                     "AT-2151"                       /**< Name of device. Will be included in the advertising data. */
+#define MANUFACTURER_NAME               "Chicony"                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
 
 #define APP_ADV_DURATION                18000                                   /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
@@ -117,6 +118,7 @@ NRF_BLE_QWR_DEF(m_qwr);                                                         
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
+static ble_motion_t m_motion;
 
 /* YOUR_JOB: Declare all services structure your application is using
  *  BLE_XYZ_DEF(m_xyz);
@@ -310,6 +312,9 @@ static void services_init(void)
        err_code = ble_yy_service_init(&yys_init, &yy_init);
        APP_ERROR_CHECK(err_code);
      */
+
+    err_code = ble_motion_init(&m_motion);
+    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -486,6 +491,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // No implementation needed.
             break;
     }
+
+    ble_motion_on_ble_evt(p_ble_evt, &m_motion);
 }
 
 
@@ -595,7 +602,22 @@ static void bsp_event_handler(bsp_event_t event)
                 }
             }
             break; // BSP_EVENT_KEY_0
-
+        case BSP_EVENT_KEY_1:
+        {   
+        // 每按一次就送一個 status 值遞增
+            static uint8_t s = 0;
+            s++;
+            ret_code_t err_code = ble_motion_status_notify(&m_motion, s);
+            if (err_code != NRF_SUCCESS &&
+                err_code != NRF_ERROR_INVALID_STATE &&
+                err_code != NRF_ERROR_RESOURCES &&
+                err_code != NRF_ERROR_BUSY &&
+                err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+            {
+                    APP_ERROR_HANDLER(err_code);
+            }
+        } 
+            break;
         default:
             break;
     }
@@ -706,6 +728,7 @@ static void advertising_start(bool erase_bonds)
 int main(void)
 {
     bool erase_bonds;
+//    SCB->VTOR = 0x00026000;    
 
     // Initialize.
     log_init();
