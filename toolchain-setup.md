@@ -44,3 +44,16 @@ SDK_ROOT := ../../../../../..
 Change to
 SDK_ROOT := ../../../../../../nRF5_SDK/nRF5_SDK_17.1.0_ddde560
 ```
+
+
+## The J-Link Debuffer
+Ozone_Windows_V340e_x64.exe
+[Ozone](https://www.segger.com/downloads/jlink/#Ozone)
+### 1️⃣ 安裝
+### 2️⃣ New Debug Project
+1. Target Device -> nRF52840_xxAA
+2. Debugger -> J-Link/Interface-> SWD
+3. Program File -> nrf52840_xxaa.out
+4. Load File (Load symbols and code)
+New Project Wizard
+    -> 
