@@ -113,20 +113,25 @@
 
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
+#define HEARTBEAT_INTERVAL APP_TIMER_TICKS(10000)
 
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
+APP_TIMER_DEF(m_heartbeat_timer);
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 static ble_motion_t m_motion;
 
+static void app_status_set(uint8_t status, uint8_t motion);
+static void update_status(uint8_t new_status);
+
 static motion_adv_mfg_data_t m_custom_adv_payload =
 {
-    .company_id = 0xFFFF,   // 測試用（正式產品請申請）    
-    .app_id    = 0x26,
-    .device_id = 26,
-    .status    = 0,
+    .app_id =       APP_ID,   // 測試用（正式產品請申請）    
+    .device_id =    DEVICE_ID,
+    .status =       STATUS_ERROR,
+    .status    =    MOTION_NONE,
 };
 
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
@@ -177,6 +182,19 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
     }
 }
 
+static void heartbeat_timeout_handler(void * p_context)
+{
+    UNUSED_PARAMETER(p_context);
+
+    // 1) Update Status（ADV + Notify）
+    app_status_set(STATUS_HEARTBEAT, MOTION_FALLEN);
+
+    // 2) If connected, Send Notify
+    if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        ble_motion_status_notify(&m_motion, STATUS_HEARTBEAT);
+    }
+}
 
 /**@brief Function for the Timer initialization.
  *
@@ -189,14 +207,10 @@ static void timers_init(void)
     APP_ERROR_CHECK(err_code);
 
     // Create timers.
-
-    /* YOUR_JOB: Create any timers to be used by the application.
-                 Below is an example of how to create a timer.
-                 For every new timer needed, increase the value of the macro APP_TIMER_MAX_TIMERS by
-                 one.
-       ret_code_t err_code;
-       err_code = app_timer_create(&m_app_timer_id, APP_TIMER_MODE_REPEATED, timer_timeout_handler);
-       APP_ERROR_CHECK(err_code); */
+   err_code = app_timer_create(&m_heartbeat_timer,
+                                APP_TIMER_MODE_REPEATED,
+                                heartbeat_timeout_handler);
+    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -637,6 +651,16 @@ static void update_status(uint8_t new_status)
 }
 #endif
 
+void app_status_set(uint8_t status, uint8_t motion)
+{
+    update_status(status);
+
+    if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        ble_motion_status_notify(&m_motion, status);
+    }
+}
+
 static void bsp_event_handler(bsp_event_t event)
 {
     ret_code_t err_code;
@@ -668,19 +692,13 @@ static void bsp_event_handler(bsp_event_t event)
             break; // BSP_EVENT_KEY_0
         case BSP_EVENT_KEY_1:
         {   
-        // 每按一次就送一個 status 值遞增
-            static uint8_t status  = 0;
-            status  ++;
-            update_status(status); 
-            ret_code_t err_code = ble_motion_status_notify(&m_motion, status);
-            if (err_code != NRF_SUCCESS &&
-                err_code != NRF_ERROR_INVALID_STATE &&
-                err_code != NRF_ERROR_RESOURCES &&
-                err_code != NRF_ERROR_BUSY &&
-                err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+            app_status_set(STATUS_BUTTON, MOTION_FALLEN);
+
+            if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
             {
-                    APP_ERROR_HANDLER(err_code);
+                ble_motion_status_notify(&m_motion, STATUS_BUTTON);
             }
+            break;
         } 
             break;
         default:
@@ -765,7 +783,8 @@ static void power_management_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
+// markout for change to sd_app_evt_wait
+#if 0
 /**@brief Function for handling the idle state (main loop).
  *
  * @details If there is no pending log operation, then sleep until next the next event occurs.
@@ -777,7 +796,7 @@ static void idle_state_handle(void)
         nrf_pwr_mgmt_run();
     }
 }
-
+#endif
 
 /**@brief Function for starting advertising.
  */
@@ -801,6 +820,7 @@ static void advertising_start(bool erase_bonds)
  */
 int main(void)
 {
+    ret_code_t err_code;    
     bool erase_bonds;
 //    SCB->VTOR = 0x00026000;    
 
@@ -815,6 +835,7 @@ int main(void)
     advertising_init();
     services_init();
     conn_params_init();
+
     peer_manager_init();
 
     // Start execution.
@@ -822,11 +843,18 @@ int main(void)
     application_timers_start();
 
     advertising_start(erase_bonds);
+    app_status_set(STATUS_BOOT, MOTION_NONE); 
+
+   err_code = app_timer_start(m_heartbeat_timer,
+                               HEARTBEAT_INTERVAL,
+                               NULL);
+    APP_ERROR_CHECK(err_code);    
 
     // Enter main loop.
     for (;;)
     {
-        idle_state_handle();
+//        idle_state_handle();
+        sd_app_evt_wait();         
     }
 }
 
