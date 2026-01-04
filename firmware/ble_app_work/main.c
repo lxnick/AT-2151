@@ -83,8 +83,9 @@
 #include "nrf_log_default_backends.h"
 
 #include "ble_motion_service.h"
+#include "ble_motion_advertising.h"
 
-#define DEVICE_NAME                     "AT-2151"                       /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                     "BLE Badge"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "Chicony"                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
 
@@ -120,9 +121,13 @@ BLE_ADVERTISING_DEF(m_advertising);                                             
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 static ble_motion_t m_motion;
 
-/* YOUR_JOB: Declare all services structure your application is using
- *  BLE_XYZ_DEF(m_xyz);
- */
+static motion_adv_mfg_data_t m_custom_adv_payload =
+{
+    .company_id = 0xFFFF,   // 測試用（正式產品請申請）    
+    .app_id    = 0x26,
+    .device_id = 26,
+    .status    = 0,
+};
 
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
@@ -447,6 +452,12 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     {
         case BLE_GAP_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected.");
+            err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+            if (err_code != NRF_SUCCESS && err_code != NRF_ERROR_INVALID_STATE)
+            {
+                APP_ERROR_CHECK(err_code);
+            }
+
             // LED indication will be changed when advertising starts.
             break;
 
@@ -573,6 +584,59 @@ static void delete_bonds(void)
  *
  * @param[in]   event   Event generated when button is pressed.
  */
+
+static void update_status(uint8_t new_status)
+ #if 0 
+{
+    m_custom_adv_payload.status = new_status;
+
+    // 重新送出 Advertising（不中斷連線）
+    ret_code_t err_code = ble_advertising_restart_without_whitelist(&m_advertising);
+
+    if (err_code != NRF_SUCCESS &&
+        err_code != NRF_ERROR_INVALID_STATE)
+    {
+        APP_ERROR_CHECK(err_code);
+    }    
+}
+#else
+{
+    ret_code_t err_code;
+
+    m_custom_adv_payload.status = new_status;
+
+    // 1️⃣ 重新設定 advertising data
+    ble_advdata_t advdata;
+    ble_advdata_manuf_data_t manuf_data;
+
+    memset(&advdata, 0, sizeof(advdata));
+
+    manuf_data.company_identifier = 0xFFFF;
+    manuf_data.data.p_data        = (uint8_t *)&m_custom_adv_payload;
+    manuf_data.data.size          = sizeof(m_custom_adv_payload);
+
+    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata.include_appearance      = true;
+    advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+    advdata.p_manuf_specific_data   = &manuf_data;
+
+ //   err_code = ble_advdata_set(&advdata, NULL);
+    err_code = ble_advertising_advdata_update(&m_advertising, &advdata, NULL);
+    APP_ERROR_CHECK(err_code);
+
+    // 2️⃣ 如果目前沒有連線，才重新啟動 advertising
+    if (m_motion.conn_handle == BLE_CONN_HANDLE_INVALID)
+    {
+        err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+        if (err_code != NRF_SUCCESS &&
+            err_code != NRF_ERROR_INVALID_STATE)
+        {
+            APP_ERROR_CHECK(err_code);
+        }
+    }
+}
+#endif
+
 static void bsp_event_handler(bsp_event_t event)
 {
     ret_code_t err_code;
@@ -605,9 +669,10 @@ static void bsp_event_handler(bsp_event_t event)
         case BSP_EVENT_KEY_1:
         {   
         // 每按一次就送一個 status 值遞增
-            static uint8_t s = 0;
-            s++;
-            ret_code_t err_code = ble_motion_status_notify(&m_motion, s);
+            static uint8_t status  = 0;
+            status  ++;
+            update_status(status); 
+            ret_code_t err_code = ble_motion_status_notify(&m_motion, status);
             if (err_code != NRF_SUCCESS &&
                 err_code != NRF_ERROR_INVALID_STATE &&
                 err_code != NRF_ERROR_RESOURCES &&
@@ -630,6 +695,7 @@ static void advertising_init(void)
 {
     ret_code_t             err_code;
     ble_advertising_init_t init;
+    ble_advdata_manuf_data_t manuf_data;    
 
     memset(&init, 0, sizeof(init));
 
@@ -638,6 +704,14 @@ static void advertising_init(void)
     init.advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
     init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+
+    /* ===== 新增：Manufacturer Specific Data ===== */
+    manuf_data.company_identifier = 0xFFFF;   // 測試用 Company ID
+    manuf_data.data.p_data        = (uint8_t *)&m_custom_adv_payload;
+    manuf_data.data.size          = sizeof(m_custom_adv_payload);
+
+    init.advdata.p_manuf_specific_data = &manuf_data;
+    /* ===== 新增結束 ===== */    
 
     init.config.ble_adv_fast_enabled  = true;
     init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
