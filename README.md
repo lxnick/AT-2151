@@ -30,8 +30,9 @@
     * memory boundary (ble_app_template_gcc_nrf52.ld ) depends on BLE comnfig
     * ble_app_pwr_profiling with 1 customer service fit out requirement
 ### 1.3 Modify pca10056\s140\config\sdk_config.h
-    * NRF_SDH_BLE_VS_UUID_COUNT == 1
-### 1.3 develop  
+	
+	
+### 1.4 develop  
     * Add BLE customer service for monitor program to discover
     * Add custom ADV data for connectionless
     * Enter Sleep mode
