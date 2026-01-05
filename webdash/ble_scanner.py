@@ -18,26 +18,32 @@ def parse_manufacturer_data(md: dict[int, bytes]):
     Manufacturer Data 格式（你目前設計）:
     [0] APP_ID_L
     [1] APP_ID_H
-    [2] STATUS
-    [3] FLAGS (可選)
+    [2] DEVICE_ID
+    [3] DEVICE_ID
+    [4] DEVICE_ID
+    [5] DEVICE_ID
+    [6] Event
+    [7] Posture
+    [9] FLAGS (可選)
     """
     if MANUFACTURER_ID not in md:
         return None
 
     data = md[MANUFACTURER_ID]
-    if len(data) < 3:
+    if len(data) < 8:
         return None
 
     app_id = data[0] | (data[1] << 8)  # little-endian
     if app_id != APP_ID:
         return None
 
-    device_id = data[2] | (data[3] << 8)
+    device_id = int.from_bytes(data[2:6], "little")       
 
-    status = data[4]
+    event = data[6]
+    posture = data[7]
     
     flags = data[3] if len(data) >= 4 else 0
-    return status, flags
+    return device_id, event, posture, flags
 
 async def scan_forever():
     def detection_callback(device, advertisement_data):
@@ -50,14 +56,14 @@ async def scan_forever():
         if parsed is None:
             return
 
-        status, flags = parsed
+        device_id, event, posture, flags = parsed
         rssi = advertisement_data.rssi  # ✅ Windows/WinRT 正確來源
 
         async def update():
             async with _devices_lock:
                 if device.address not in devices:
-                    devices[device.address] = DeviceState(address=device.address, name=device.name)
-                devices[device.address].touch(status=status, rssi=rssi, flags=flags)
+                    devices[device.address] = DeviceState(address=device.address, name=device.name, device_id=device_id)
+                devices[device.address].touch(event=event,posture = posture, rssi=rssi, flags=flags)
 
         # callback 不能 await，丟回 event loop
         asyncio.get_running_loop().create_task(update())

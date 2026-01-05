@@ -8,13 +8,16 @@ OFFLINE_TIMEOUT = 15.0  # seconds
 class DeviceState:
     address: str
     name: str
-    status: int | None = None
+    device_id:int
+    event: int | None = None
+    posture: int | None = None
     flags: int = 0
     rssi: int | None = None
     last_seen: float = 0.0
 
-    def touch(self, status: int, rssi: int, flags: int = 0):
-        self.status = status
+    def touch(self, event: int,posture: int, rssi: int, flags: int = 0):
+        self.event = event
+        self.posture = posture
         self.rssi = rssi
         self.flags = flags
         self.last_seen = time.time()

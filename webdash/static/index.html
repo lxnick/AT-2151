@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>IOT BLE Dashboard</title>
+  <title>BLE Badge Dashboard</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 16px; }
     .topbar { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
@@ -26,7 +26,7 @@
 </head>
 <body>
   <div class="topbar">
-    <h2 style="margin:0;">IOT BLE Dashboard</h2>
+    <h2 style="margin:0;">BLE Badge Dashboard</h2>
     <span id="conn" class="pill">WS: connecting...</span>
     <span id="count" class="pill">Devices: 0</span>
     <span class="pill">Filter: Name startswith "BLE Badge" + Manufacturer(0x3412)</span>
@@ -36,9 +36,12 @@
     <thead>
       <tr>
         <th>Name</th>
+        <th>Device ID</th> 
         <th>Address</th>
         <th>Event</th>
-         <th class="right">RSSI</th>
+        <th>Posture</th>    
+        <th>Flags</th> 
+        <th class="right">RSSI</th>
         <th class="right">Last Seen (s)</th>
         <th>State</th>
       </tr>
@@ -53,6 +56,12 @@
     0x03: ["Interrupt", "st-btn"],
   };
 
+   const FLAG_MAP = [
+    { bit: 0x01, label: "CONN", cls: "ok" },
+    { bit: 0x02, label: "SLEEP", cls: "dim" },
+    { bit: 0x04, label: "ERR", cls: "lost" },
+    { bit: 0x08, label: "LOWBAT", cls: "rssi-mid" },
+  ];
   function rssiClass(rssi){
     if (rssi === null || rssi === undefined) return "";
     if (rssi > -55) return "rssi-strong";
@@ -60,12 +69,38 @@
     return "rssi-weak";
   }
 
-  function statusCell(status){
+  function eventCell(status){
     if (status === null || status === undefined) return `<span class="dim">UNKNOWN</span>`;
     const v = STATUS_MAP[status];
     if (!v) return `<span class="mono">0x${status.toString(16).padStart(2,"0").toUpperCase()}</span>`;
     return `<span class="${v[1]}">${v[0]}</span>`;
   }
+
+  function postureCell(status){
+    if (status === null || status === undefined) return `<span class="dim">UNKNOWN</span>`;
+    const v = STATUS_MAP[status];
+    if (!v) return `<span class="mono">0x${status.toString(16).padStart(2,"0").toUpperCase()}</span>`;
+    return `<span class="${v[1]}">${v[0]}</span>`;
+  }
+
+  function flagsCell(flags){
+    if (flags === null || flags === undefined) {
+      return `<span class="dim">--</span>`;
+    }
+
+    let parts = [];
+    for (const f of FLAG_MAP) {
+      if (flags & f.bit) {
+        parts.push(`<span class="${f.cls}">${f.label}</span>`);
+      }
+    }
+
+    if (parts.length === 0) {
+      return `<span class="dim">NONE</span>`;
+    }
+    return parts.join(" ");
+  }
+
 
   function stateCell(online){
     return online ? `<span class="ok">ONLINE</span>` : `<span class="lost">LOST</span>`;
@@ -80,9 +115,14 @@
     tbody.innerHTML = devs.map(d => `
       <tr>
         <td><b>${d.name ?? ""}</b></td>
+        <td class="mono">
+        ${d.device_id !== undefined ? d.device_id.toString(16).toUpperCase().padStart(8,"0") : "--"}
+        </td>
         <td class="mono dim">${d.address ?? ""}</td>
-        <td>${statusCell(d.status)}</td>
-         <td class="right mono ${rssiClass(d.rssi)}">${d.rssi ?? "--"}</td>
+        <td>${eventCell(d.event)}</td>
+        <td>${postureCell(d.posture)}</td>
+        <td>${flagsCell(d.flags)}</td> 
+        <td class="right mono ${rssiClass(d.rssi)}">${d.rssi ?? "--"}</td>
         <td class="right mono">${(d.age ?? 9999).toFixed(1)}</td>
         <td>${stateCell(d.online)}</td>
       </tr>

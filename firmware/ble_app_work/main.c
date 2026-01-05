@@ -123,15 +123,15 @@ APP_TIMER_DEF(m_heartbeat_timer);
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 static ble_motion_t m_motion;
 
-static void app_status_set(uint8_t status, uint8_t motion);
+static void app_status_set(uint8_t status);
 static void update_status(uint8_t new_status);
 
 static motion_adv_mfg_data_t m_custom_adv_payload =
 {
     .app_id =       APP_ID,   // 測試用（正式產品請申請）    
     .device_id =    DEVICE_ID,
-    .status =       STATUS_ERROR,
-    .status    =    MOTION_NONE,
+    .event =        STATUS_ERROR,
+    .posture    =   MOTION_NONE,
 };
 
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
@@ -143,6 +143,14 @@ static ble_uuid_t m_adv_uuids[] =                                               
 
 static void advertising_start(bool erase_bonds);
 
+
+// Using FICR as device ID
+uint32_t get_device_id(void)
+{
+    uint32_t id0 = NRF_FICR->DEVICEID[0];
+    uint32_t id1 = NRF_FICR->DEVICEID[1];
+    return id0 ^ id1;
+}
 
 /**@brief Callback function for asserts in the SoftDevice.
  *
@@ -186,14 +194,7 @@ static void heartbeat_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
 
-    // 1) Update Status（ADV + Notify）
-    app_status_set(STATUS_HEARTBEAT, MOTION_FALLEN);
-
-    // 2) If connected, Send Notify
-    if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
-    {
-        ble_motion_status_notify(&m_motion, STATUS_HEARTBEAT);
-    }
+    app_status_set(STATUS_HEARTBEAT);
 }
 
 /**@brief Function for the Timer initialization.
@@ -599,6 +600,16 @@ static void delete_bonds(void)
  * @param[in]   event   Event generated when button is pressed.
  */
 
+void app_status_set(uint8_t status)
+{
+    update_status(status);
+
+    if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        ble_motion_status_notify(&m_motion, status);
+    }
+}
+
 static void update_status(uint8_t new_status)
  #if 0 
 {
@@ -617,7 +628,7 @@ static void update_status(uint8_t new_status)
 {
     ret_code_t err_code;
 
-    m_custom_adv_payload.status = new_status;
+    m_custom_adv_payload.event = new_status;
 
     // 1️⃣ 重新設定 advertising data
     ble_advdata_t advdata;
@@ -625,7 +636,7 @@ static void update_status(uint8_t new_status)
 
     memset(&advdata, 0, sizeof(advdata));
 
-    manuf_data.company_identifier = 0xFFFF;
+    manuf_data.company_identifier = COMPANY_ID;
     manuf_data.data.p_data        = (uint8_t *)&m_custom_adv_payload;
     manuf_data.data.size          = sizeof(m_custom_adv_payload);
 
@@ -651,15 +662,7 @@ static void update_status(uint8_t new_status)
 }
 #endif
 
-void app_status_set(uint8_t status, uint8_t motion)
-{
-    update_status(status);
 
-    if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
-    {
-        ble_motion_status_notify(&m_motion, status);
-    }
-}
 
 static void bsp_event_handler(bsp_event_t event)
 {
@@ -692,12 +695,11 @@ static void bsp_event_handler(bsp_event_t event)
             break; // BSP_EVENT_KEY_0
         case BSP_EVENT_KEY_1:
         {   
-            app_status_set(STATUS_BUTTON, MOTION_FALLEN);
+            // Simulate posture change
+            m_custom_adv_payload.posture ++;
 
-            if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
-            {
-                ble_motion_status_notify(&m_motion, STATUS_BUTTON);
-            }
+            app_status_set(STATUS_BUTTON);
+
             break;
         } 
             break;
@@ -815,6 +817,17 @@ static void advertising_start(bool erase_bonds)
     }
 }
 
+void VerifyRamStart(void)
+{
+    uint32_t ram_start = 0;
+    ret_code_t err_code;
+
+    err_code = nrf_sdh_ble_default_cfg_set(APP_BLE_CONN_CFG_TAG, &ram_start);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_sdh_ble_enable(&ram_start);
+    APP_ERROR_CHECK(err_code);
+}
 
 /**@brief Function for application main entry.
  */
@@ -823,6 +836,9 @@ int main(void)
     ret_code_t err_code;    
     bool erase_bonds;
 //    SCB->VTOR = 0x00026000;    
+
+    m_custom_adv_payload.device_id = get_device_id();
+    //VerifyRamStart();
 
     // Initialize.
     log_init();
@@ -843,7 +859,7 @@ int main(void)
     application_timers_start();
 
     advertising_start(erase_bonds);
-    app_status_set(STATUS_BOOT, MOTION_NONE); 
+    app_status_set(STATUS_BOOT); 
 
    err_code = app_timer_start(m_heartbeat_timer,
                                HEARTBEAT_INTERVAL,
