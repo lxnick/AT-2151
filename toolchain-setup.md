@@ -46,7 +46,7 @@ SDK_ROOT := ../../../../../../nRF5_SDK/nRF5_SDK_17.1.0_ddde560
 ```
 
 
-## The J-Link Debuffer
+## The J-Link Debugger
 Ozone_Windows_V340e_x64.exe
 [Ozone](https://www.segger.com/downloads/jlink/#Ozone)
 ### 1️⃣ 安裝
