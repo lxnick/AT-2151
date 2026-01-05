@@ -24,9 +24,8 @@ extern "C" {
 
 typedef struct __attribute__((packed))
 {
-//    uint16_t company_id;   // 固定識別 (建議用你自己的，測試可用 0xFFFF)
-    uint16_t  app_id;       // 應用識別 (例如 0x26)
-    uint16_t  device_id;    // Device ID (26)
+    uint16_t  app_id;       // 
+    uint16_t  device_id;    // 
     uint8_t  status;       // 
     uint8_t  motion;
 } motion_adv_mfg_data_t;
