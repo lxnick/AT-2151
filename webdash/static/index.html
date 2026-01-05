@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>IOT BLE Dashboard</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 16px; }
+    .topbar { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .pill { padding:4px 10px; border-radius:999px; background:#eee; font-size:12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid #ddd; text-align:left; }
+    th { background: #f7f7f7; position: sticky; top: 0; }
+    .dim { color: #777; }
+    .ok { color: #0a7; font-weight: 600; }
+    .lost { color: #c22; font-weight: 700; }
+    .st-boot { color:#0aa; font-weight:700; }
+    .st-hb { color:#0a7; font-weight:700; }
+    .st-btn { color:#c90; font-weight:700; }
+    .rssi-strong { color:#0a7; font-weight:700; }
+    .rssi-mid { color:#c90; font-weight:700; }
+    .rssi-weak { color:#c22; font-weight:700; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .right { text-align:right; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h2 style="margin:0;">IOT BLE Dashboard</h2>
+    <span id="conn" class="pill">WS: connecting...</span>
+    <span id="count" class="pill">Devices: 0</span>
+    <span class="pill">Filter: Name startswith "BLE Badge" + Manufacturer(0x3412)</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th>Event</th>
+         <th class="right">RSSI</th>
+        <th class="right">Last Seen (s)</th>
+        <th>State</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+<script>
+  const STATUS_MAP = {
+    0x01: ["BOOT", "st-boot"],
+    0x02: ["HEARTBEAT", "st-hb"],
+    0x03: ["Interrupt", "st-btn"],
+  };
+
+  function rssiClass(rssi){
+    if (rssi === null || rssi === undefined) return "";
+    if (rssi > -55) return "rssi-strong";
+    if (rssi > -70) return "rssi-mid";
+    return "rssi-weak";
+  }
+
+  function statusCell(status){
+    if (status === null || status === undefined) return `<span class="dim">UNKNOWN</span>`;
+    const v = STATUS_MAP[status];
+    if (!v) return `<span class="mono">0x${status.toString(16).padStart(2,"0").toUpperCase()}</span>`;
+    return `<span class="${v[1]}">${v[0]}</span>`;
+  }
+
+  function stateCell(online){
+    return online ? `<span class="ok">ONLINE</span>` : `<span class="lost">LOST</span>`;
+  }
+
+  const tbody = document.getElementById("tbody");
+  const conn = document.getElementById("conn");
+  const count = document.getElementById("count");
+
+  function render(devs){
+    count.textContent = `Devices: ${devs.length}`;
+    tbody.innerHTML = devs.map(d => `
+      <tr>
+        <td><b>${d.name ?? ""}</b></td>
+        <td class="mono dim">${d.address ?? ""}</td>
+        <td>${statusCell(d.status)}</td>
+         <td class="right mono ${rssiClass(d.rssi)}">${d.rssi ?? "--"}</td>
+        <td class="right mono">${(d.age ?? 9999).toFixed(1)}</td>
+        <td>${stateCell(d.online)}</td>
+      </tr>
+    `).join("");
+  }
+
+  function startWS(){
+    const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
+    const ws = new WebSocket(url);
+
+    ws.onopen = () => { conn.textContent = "WS: connected"; conn.style.background="#e6fff5"; };
+    ws.onclose = () => { conn.textContent = "WS: disconnected (retrying)"; conn.style.background="#ffecec"; setTimeout(startWS, 1000); };
+    ws.onerror = () => { conn.textContent = "WS: error"; conn.style.background="#ffecec"; };
+
+    ws.onmessage = (evt) => {
+      try {
+        const devs = JSON.parse(evt.data);
+        render(devs);
+      } catch(e) {}
+    };
+  }
+
+  startWS();
+</script>
+</body>
+</html>
