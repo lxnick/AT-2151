@@ -76,18 +76,23 @@
     return `<span class="${v[1]}">${v[0]}</span>`;
   }
 
-  function postureCell(status){
-    if (status === null || status === undefined) return `<span class="dim">UNKNOWN</span>`;
-    const v = STATUS_MAP[status];
-    if (!v) return `<span class="mono">0x${status.toString(16).padStart(2,"0").toUpperCase()}</span>`;
-    return `<span class="${v[1]}">${v[0]}</span>`;
+  function postureCell(posture){
+    if (posture === null || posture === undefined) {
+      return `<span class="dim">--</span>`;
+    }
+
+    // 直接顯示十進位整數
+    return `<span class="mono">${posture}</span>`;
   }
+
 
   function flagsCell(flags){
     if (flags === null || flags === undefined) {
       return `<span class="dim">--</span>`;
     }
 
+    // ===== 原本的 bit-flag 顯示邏輯（先保留，暫不使用） =====
+    /*    
     let parts = [];
     for (const f of FLAG_MAP) {
       if (flags & f.bit) {
@@ -99,6 +104,10 @@
       return `<span class="dim">NONE</span>`;
     }
     return parts.join(" ");
+    */
+
+    // 目前需求：直接顯示整數值
+    return `<span class="mono">${flags}</span>`;
   }
 
 
