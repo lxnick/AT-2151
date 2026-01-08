@@ -82,6 +82,8 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+#include "SEGGER_RTT.h"
+
 #include "ble_motion_service.h"
 #include "ble_motion_advertising.h"
 
@@ -833,9 +835,12 @@ void VerifyRamStart(void)
  */
 int main(void)
 {
+    SEGGER_RTT_Init();
+
     ret_code_t err_code;    
     bool erase_bonds;
 //    SCB->VTOR = 0x00026000;    
+    SEGGER_RTT_printf(0, "Hello RTT!\n");
 
     m_custom_adv_payload.device_id = get_device_id();
     //VerifyRamStart();
@@ -869,6 +874,7 @@ int main(void)
     // Enter main loop.
     for (;;)
     {
+        SEGGER_RTT_printf(0, "Loop RTT!\n");        
 //        idle_state_handle();
         sd_app_evt_wait();         
     }
