@@ -12,6 +12,20 @@
 - SDK nRF5_SDK_17.1.0_ddde560
 [Toolchain](./toolchain-setup.md)
 
+# nRF52832 VS nRF52840
+|功能/規格 |nRF52832 | nRF52840 |
+|:----------|:----------|:----------|
+| 處理器   | ARM Cortex-M4F | ARM Cortex-M4F |
+| Flash | 512KB/256KB | 1MB|
+| RAM | 64KB/32KB | 256KB|
+| Wireless | BLE/ANT/2.4GHz | BLE/ANT/2.4GHz, Thread, Zigbeee, 802.15.4 |
+| USB | N/A |USB 2.0 |
+| Security | Basic AES | CryptoCell-310 |
+| Peak Current | ~7.5mA | ~14.8mA |
+| Votage Supply | 1.7V~3.6V | 1.7V~5.5V|
+
+
+
 # Function Description
 ## Firmware
 1. BLE 裝置. 連線後進入睡眠裝置 
