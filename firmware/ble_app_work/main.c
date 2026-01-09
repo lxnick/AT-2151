@@ -833,6 +833,8 @@ void VerifyRamStart(void)
 
 /**@brief Function for application main entry.
  */
+extern int spi_main(void);
+
 int main(void)
 {
     SEGGER_RTT_Init();
@@ -870,6 +872,8 @@ int main(void)
                                HEARTBEAT_INTERVAL,
                                NULL);
     APP_ERROR_CHECK(err_code);    
+
+    spi_main();
 
     // Enter main loop.
     for (;;)
