@@ -15,8 +15,8 @@
 
 /* Includes --------------------------------------------------------------*/
 #include "lib_common.h"
-#include "state_control.h"
-#include "mode_manager.h"
+//#include "state_control.h"
+//#include "mode_manager.h"
 #include "lib_ram_retain.h"
 #include "lib_timer.h"
 #include "lib_fifo.h"
@@ -26,7 +26,7 @@
 #include "nrf_atfifo.h"
 #include "nrf_atfifo_internal.h"
 #include "lib_icm42607.h"
-#include "definition.h"
+//#include "definition.h"
 #include "lib_trace_log.h"
 #include "lib_bat.h"
 

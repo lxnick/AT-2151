@@ -62,6 +62,10 @@ SRC_FILES += \
   $(PROJ_DIR)/main.c \
   $(PROJ_DIR)/ble_motion_service.c \
   $(PROJ_DIR)/spi_main.c \
+  $(PROJ_DIR)/library/src/lib_icm42607.c \
+  $(PROJ_DIR)/library/src/lib_debug_uart.c \
+  $(PROJ_DIR)/library/src/lib_trace_log.c \
+  $(PROJ_DIR)/library/src/lib_spi_function.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_Syscalls_GCC.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_printf.c \
@@ -221,6 +225,8 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/nfc/ndef/conn_hand_parser/ac_rec_parser \
   $(SDK_ROOT)/components/libraries/stack_guard \
   $(SDK_ROOT)/components/libraries/log/src \
+  $(PROJ_DIR)/library/inc \
+  $(PROJ_DIR) \
 
 # Libraries common to all targets
 LIB_FILES += \

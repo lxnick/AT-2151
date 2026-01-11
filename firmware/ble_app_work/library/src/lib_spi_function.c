@@ -17,10 +17,14 @@
 #include "nrf_drv_spi.h"
 #include "nrf_gpio.h"
 #include "string.h"
-#include "lib_common.h"
-#include "ble_definition.h"
+//#include "lib_common.h"
+//#include "ble_definition.h"
 #include "lib_spi_function.h"
 #include "lib_trace_log.h"
+
+#include "pin_config.h"
+
+#define NO_BLE2_NOW 0
 
 /* Definition ------------------------------------------------------------*/
 #define SPI_INSTANCE  0 /**< SPI instance index. */
@@ -257,7 +261,9 @@ void SpiErrCheck(nrfx_err_t err, uint16_t line)
 	if(err != NRF_SUCCESS)
 	{	
 		DEBUG_LOG(LOG_ERROR,"spi err 0x%x. line %u",err, line);
+#if NO_BLE2_NOW		
 		SetBleErrReadCmd(UTC_BLE_SPI_ERROR);
+#endif		
 		TRACE_LOG(TR_SPI_ERROR, line);
 	}
 }

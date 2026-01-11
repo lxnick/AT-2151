@@ -21,9 +21,20 @@
 
 #include "lib_icm42607.h"
 #include "lib_debug_uart.h"
-#include "lib_fifo.h"
-#include "ble_definition.h"
-#include "mode_manager.h"
+//#include "lib_fifo.h"
+//#include "ble_definition.h"
+//#include "mode_manager.h"
+
+#include "SEGGER_RTT.h"
+#include "pin_config.h"
+
+// Nick, NO FIFO
+#define NO_FIFO_NOW	0
+#define NO_BLE2_NOW	0
+#define NO_UART_NOW 0
+
+#define USE_RTT_NOW	1
+
 
 /* Definition ------------------------------------------------------------*/
 #define FIFO_OUT_SIZE	(ACC_GYRO_FIFO_PACKET_SIZE)		/* FIFO Output Size */
@@ -218,20 +229,25 @@ static uint32_t get_acc_gyro_mode( uint8_t *mode )
  */
 static void acc_gyro_int1_event_handler( nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action )
 {
+#if NO_FIFO_NOW	
 	volatile EVT_ST event_info = {0};
+#endif	
 	volatile nrfx_err_t err_code;
 	volatile ACC_GYRO_DATA_INFO acc_gyro_data_info = {0};
+
+#if NO_FIFO_NOW		
 	volatile uint32_t fifo_err_code = NRF_SUCCESS;
 	uint32_t fifo_err;
+#endif	
 	uint16_t fifo_count = 0;
 	bool uart_enable = false;
-	
+#if NO_UART_NOW	
 	uart_enable = GetUartOutputStatus();
 	if ( uart_enable == false )
 	{
 		LibUartEnable();
 	}
-
+#endif
 	/* 2020.12.09 Add Clear FIFO ++ */
 	AccGyroValidateClearFifo();
 	/* 2020.12.09 Add Clear FIFO -- */
@@ -259,6 +275,8 @@ static void acc_gyro_int1_event_handler( nrfx_gpiote_pin_t pin, nrf_gpiote_polar
 					acc_gyro_data_info.sid = AccGyroIncSid();
 					/* 2020.12.09 SIDをここで付加 -- */
 					/* 2020.12.08 Add 現在のFIFO Countを計測するように修正 ++ */
+			
+#if NO_FIFO_NOW					
 					AccGyroIncFifoCount();
 					/* 2020.12.08 Add 現在のFIFO Countを計測するように修正 -- */
 					/* データの準備が完了した際にFIFOに積む */
@@ -271,6 +289,7 @@ static void acc_gyro_int1_event_handler( nrfx_gpiote_pin_t pin, nrf_gpiote_polar
 						/* 2020.12.08 Add Buffer Fullの場合FIFO Countをへらす -- */
 					}
 					memset( (void *)&acc_gyro_data_info, 0, sizeof( acc_gyro_data_info ) );
+#endif					
 				}
 				else if ( err_code != ACC_GYRO_DATA_NOT_COMPLETE )
 				{
@@ -292,12 +311,15 @@ static void acc_gyro_int1_event_handler( nrfx_gpiote_pin_t pin, nrf_gpiote_polar
 	}
 	else
 	{
+#if NO_BLE2_NOW		
 		/* 初期化エラー時にはTraceLogを保存 */
 		TRACE_LOG( TR_ACC_READ_INT_INIT_ERROR, 0 );
 		DEBUG_LOG( LOG_ERROR, "!!! SPI Init Error !!!" );
 		SetBleErrReadCmd( (uint8_t)UTC_BLE_SPI_INIT_ERROR );
+#endif		
 	}
-	
+
+#if NO_FIFO_NOW		
 	/* 2020.12.08 Add FIFOがエラーになった場合にログ出力を追加 ++ */
 	if ( fifo_err_code == NRF_ERROR_NO_MEM )
 	{
@@ -308,13 +330,16 @@ static void acc_gyro_int1_event_handler( nrfx_gpiote_pin_t pin, nrf_gpiote_polar
 	event_info.evt_id = EVT_ACC_FIFO_INT;
 	fifo_err = PushFifo( (void *)&event_info );
 	DEBUG_EVT_FIFO_LOG( fifo_err, EVT_ACC_FIFO_INT );
+#endif	
 	/* 2020.12.08 Add 割り込みを無効にするのではなくLatch Clearのみに修正 ++ */
 	nrf_gpio_pin_latch_clear( ACC_INT1_PIN );
 	/* 2020.12.08 Add 割り込みを無効にするのではなくLatch Clearのみに修正 -- */
 
 	if ( uart_enable == false )
 	{
+#if NO_UART_NOW		
 		LibUartDisable();
+#endif		
 	}
 }
 
@@ -395,7 +420,7 @@ static nrfx_err_t setup_acc_gyro_wakeup_ths( uint8_t address, uint8_t theshold )
 		return ret;
 	}
 	
-	read_data &= ~WOM_THRESHOLD_MASK;
+	read_data &= (uint8_t) ~WOM_THRESHOLD_MASK;
 	read_data |= theshold;
 	
 	/* TMST_CONFIG1への書き込み */
@@ -416,8 +441,9 @@ static nrfx_err_t setup_acc_gyro_fifo_wtm( uint16_t wtm )
 {
 	volatile nrfx_err_t ret = 0;
 	volatile uint8_t set_val = 0;
+#if NO_FIFO_NOW	
 	volatile uint8_t read_data = 0;
-
+#endif
 	/* FIFO_CONFIG2への設定 */
 	set_val = (uint8_t)( wtm & ACC_GYRO_FIFO_CONFIG2_WTM_MASK );
 
@@ -1852,7 +1878,9 @@ uint32_t AccGyroRegReset( void )
 	{
 		DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro Reg Reset Error !!!" );
 		TRACE_LOG( TR_ACC_RESET_FAIL, 0 );
+#if NO_BLE2_NOW		
 		SetBleErrReadCmd( (uint8_t)UTC_BLE_SPI_INIT_ERROR );
+#endif		
 	}
 	else
 	{
@@ -1934,14 +1962,24 @@ uint32_t AccGyroInitialize( uint32_t previous_err )
 	
 	if ( ret != UTC_SUCCESS )
 	{
-		DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro Initialize Error !!!" );
-		TRACE_LOG( TR_ACC_INIT_FAIL, 0 );
+#if USE_RTT_NOW		
+	SEGGER_RTT_printf(0, "!!! Acc/Gyro Initialize Error !!!" ); 	
+#else
+	DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro Initialize Error !!!" );
+	TRACE_LOG( TR_ACC_INIT_FAIL, 0 );
+#endif
+#if NO_BLE2_NOW		
 		SetBleErrReadCmd( (uint8_t)UTC_BLE_SPI_INIT_ERROR );
+#endif		
 	}
 	else
 	{
+#if USE_RTT_NOW	
+	SEGGER_RTT_printf(0, "!!! Acc/Gyro Initialize Complete !!!" );	
+#else		
 		DEBUG_LOG( LOG_INFO, "!!! Acc/Gyro Initialize Complete !!!" );
 		TRACE_LOG( TR_ACC_INIT_CMPL, 0 );
+#endif		
 	}
 	return ret;
 }
@@ -2004,7 +2042,9 @@ uint32_t AccGyroWakeUpSetting( uint32_t previous_err )
 	{
 		DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro WakeUp Setting Error !!!" );
 		TRACE_LOG( TR_ACC_3G_INIT_CMPL, 0 );
+#if NO_BLE2_NOW	
 		SetBleErrReadCmd( (uint8_t)UTC_BLE_SPI_INIT_ERROR );
+#endif		
 	}
 	else
 	{
@@ -2090,7 +2130,9 @@ uint32_t AccGyroReadIntSrc( uint8_t *x_int, uint8_t *y_int, uint8_t *z_int )
 	if ( ret != UTC_SUCCESS )
 	{
 		DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro Read Interrupt Src Error !!!" );
+#if NO_BLE2_NOW		
 		SetBleErrReadCmd( (uint8_t)UTC_BLE_SPI_INIT_ERROR );
+#endif		
 	}
 	else
 	{
@@ -2159,7 +2201,9 @@ uint32_t AccGyroReconfig( uint8_t mode_number )
 	{
 		DEBUG_LOG( LOG_ERROR, "!!! ACC/Gyro Reconfig Error !!!" );
 		TRACE_LOG( TR_ACC_RESET_FAIL, 0 );
+#if NO_BLE2_NOW		
 		SetBleErrReadCmd( (uint8_t)UTC_BLE_SPI_INIT_ERROR );
+#endif		
 	}
 	else
 	{
@@ -2189,7 +2233,12 @@ void AccGyroCalcData( ACC_GYRO_DATA_INFO *acc_gyro_info )
 	const struct _calc_data_func_table
 	{
 		calc_func func;
-	} calcop_mode_info_table[] = { &acc_calculation, &gyro_calculation, &acc_gyro_calculation, &acc_calculation };
+	} calcop_mode_info_table[] = 
+	{ 
+		{&acc_calculation}, 
+		{&gyro_calculation}, 
+		{&acc_gyro_calculation}, 
+		{&acc_calculation} };
 
 	/* ACC/Gyro/Tempデータを計算する */
 	get_acc_gyro_mode( (void *)&current_mode );
@@ -2415,11 +2464,14 @@ uint16_t AccGyroGetFifoCount( void )
  */
 void AccGyroValidateClearFifo( void )
 {
+#if NO_FIFO_NOW		
 	ACC_GYRO_DATA_INFO acc_gyro_data = {0};
 	SENSOR_FIFO_DATA_INFO fifo_data_info = {0};
 	volatile uint16_t set_sid = 0;
+
 	uint32_t ret;
-	
+
+
 	ret = FifoClearPopFifo( &fifo_data_info );
 	if ( ret == NRF_SUCCESS )
 	{
@@ -2451,6 +2503,7 @@ void AccGyroValidateClearFifo( void )
 		/* 有効にしてから抜ける */
 		AccGyroEnableGpioInt( ACC_INT1_PIN );
 	}
+#endif	
 }
 
 /**
@@ -2473,3 +2526,9 @@ uint8_t AccGyroGetSendHeader( uint8_t tag_data )
 	return header;
 }
 
+void AccGyroSelfTest( void )
+{
+
+	acc_gyro_read_device_id();
+
+}

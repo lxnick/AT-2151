@@ -87,6 +87,8 @@
 #include "ble_motion_service.h"
 #include "ble_motion_advertising.h"
 
+#include "lib_icm42607.h"
+
 #define DEVICE_NAME                     "BLE Badge"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "Chicony"                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
@@ -838,6 +840,7 @@ extern int spi_main(void);
 int main(void)
 {
     SEGGER_RTT_Init();
+    uint32_t loop_count = 0;
 
     ret_code_t err_code;    
     bool erase_bonds;
@@ -852,6 +855,13 @@ int main(void)
     timers_init();
     buttons_leds_init(&erase_bonds);
     power_management_init();
+
+    // Trace before BLE
+    SEGGER_RTT_printf(0, "Ready Acc!\n");   
+    AccGyroInitialize(0x00);
+
+    AccGyroSelfTest();
+
     ble_stack_init();
     gap_params_init();
     gatt_init();
@@ -873,12 +883,13 @@ int main(void)
                                NULL);
     APP_ERROR_CHECK(err_code);    
 
-    spi_main();
+
 
     // Enter main loop.
     for (;;)
     {
-        SEGGER_RTT_printf(0, "Loop RTT!\n");        
+        SEGGER_RTT_printf(0, "Loop RTT %d!\n", loop_count++);     
+          
 //        idle_state_handle();
         sd_app_evt_wait();         
     }

@@ -28,7 +28,7 @@
 #include "lib_debug_uart.h"
 #include "lib_trace_log.h"
 #include "lib_ex_rtc.h"
-#include "definition.h"
+//#include "definition.h"
 
 #ifdef __cplusplus
 extern "C"{

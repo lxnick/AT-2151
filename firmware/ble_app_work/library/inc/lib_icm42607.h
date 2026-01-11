@@ -20,9 +20,10 @@
 #include "nrf_gpio.h"
 #include "nrfx_gpiote.h"
 
-#include "state_control.h"
+//#include "state_control.h"
 #include "lib_spi_function.h"
-#include "definition.h"
+//#include "definition.h"
+#include "lib_common.h"
 
 /* Definition ------------------------------------------------------------*/
 #define ICM42607_DEVICE_ID					(0x68)			/* LSM6DSOW Device ID */
@@ -617,6 +618,8 @@ void AccGyroValidateClearFifo( void );
  * @retval header Send Header Data
  */
 uint8_t AccGyroGetSendHeader( uint8_t tag_data );
+
+void AccGyroSelfTest( void );
 
 #endif
 
