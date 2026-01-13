@@ -235,6 +235,8 @@ static void acc_gyro_int1_event_handler( nrfx_gpiote_pin_t pin, nrf_gpiote_polar
 	volatile nrfx_err_t err_code;
 	volatile ACC_GYRO_DATA_INFO acc_gyro_data_info = {0};
 
+	SEGGER_RTT_printf(0, "Interrupt Encountered \n");	
+
 #if NO_FIFO_NOW		
 	volatile uint32_t fifo_err_code = NRF_SUCCESS;
 	uint32_t fifo_err;
@@ -1159,6 +1161,7 @@ static nrfx_err_t acc_gyro_read_device_id( void )
 		DEBUG_LOG( LOG_ERROR, "Acc/Gyro Device ID Failed : 0x%x", device_id );
 	}
 	
+	SEGGER_RTT_printf(0, "%s device_id = %d\n", device_id );			
 	return err_code;
 
 }
@@ -1347,6 +1350,7 @@ static nrfx_err_t acc_gyro_odr_fsr( void )
 		return ACC_GYRO_SETEUP_ERROR;
 	}
 	
+    SEGGER_RTT_printf(0, " %s %d Success\n", __FUNCTION__,err_code );		
 	return err_code;
 
 }
@@ -1415,6 +1419,7 @@ static nrfx_err_t acc_gyro_fifo_config( void )
 		return ACC_GYRO_SETEUP_ERROR;
 	}
 
+    SEGGER_RTT_printf(0, " %s %d Success\n", __FUNCTION__,err_code );	
 	return err_code;
 }
 
@@ -1445,6 +1450,7 @@ static nrfx_err_t acc_gyro_interrupt_ctrl_set( void )
 	/* Setup INT1 GPIO Interrupt */
 	setup_acc_gyro_gpio_pin_init();
 	
+     SEGGER_RTT_printf(0, " %s %d Success\n", __FUNCTION__,err_code );	
 	return err_code;
 }
 
@@ -1542,6 +1548,7 @@ static nrfx_err_t acc_gyro_exec_mode_set( void )
 		nrf_delay_ms( WAIT_MODE_CHANGE_INTERVAL );
 	}
 	
+    SEGGER_RTT_printf(0, " %s %d Success\n", __FUNCTION__,err_code );	
 	return err_code;
 }
 
@@ -1827,7 +1834,9 @@ static void acc_gyro_calculation( ACC_GYRO_DATA_INFO *calc_data )
  */
 __STATIC_INLINE void register_setup_error_log( uint8_t reg_addr, uint8_t set_val, uint32_t line )
 {
-	DEBUG_LOG( LOG_ERROR, "register=0x%x val=0x%x line=%d", reg_addr, set_val, line );
+//	DEBUG_LOG( LOG_ERROR, "register=0x%x val=0x%x line=%d", reg_addr, set_val, line );
+	SEGGER_RTT_printf( 0, "register=0x%x val=0x%x line=%d\n", reg_addr, set_val, line );
+
 }
 
 /**
@@ -1916,6 +1925,8 @@ uint32_t AccGyroInitialize( uint32_t previous_err )
 		{	1,	&acc_gyro_interrupt_ctrl_set	},			/* INT1/INT2 Setting */
 		{	3,	&acc_gyro_exec_mode_set			},			/* Acc/Gyro動作モード設定 */
 	};
+
+    SEGGER_RTT_printf(0, "%s\n", __FUNCTION__);	
 	
 	if ( previous_err != UTC_SUCCESS )
 	{
@@ -1963,7 +1974,7 @@ uint32_t AccGyroInitialize( uint32_t previous_err )
 	if ( ret != UTC_SUCCESS )
 	{
 #if USE_RTT_NOW		
-	SEGGER_RTT_printf(0, "!!! Acc/Gyro Initialize Error !!!" ); 	
+	; 	
 #else
 	DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro Initialize Error !!!" );
 	TRACE_LOG( TR_ACC_INIT_FAIL, 0 );
@@ -1975,12 +1986,14 @@ uint32_t AccGyroInitialize( uint32_t previous_err )
 	else
 	{
 #if USE_RTT_NOW	
-	SEGGER_RTT_printf(0, "!!! Acc/Gyro Initialize Complete !!!" );	
+	;	
 #else		
 		DEBUG_LOG( LOG_INFO, "!!! Acc/Gyro Initialize Complete !!!" );
 		TRACE_LOG( TR_ACC_INIT_CMPL, 0 );
 #endif		
 	}
+
+	SEGGER_RTT_printf(0, "%s done\n", __FUNCTION__ );		
 	return ret;
 }
 
@@ -2079,9 +2092,11 @@ uint32_t AccGyroReadIntSrc( uint8_t *x_int, uint8_t *y_int, uint8_t *z_int )
 			/* INT2 PinによるWakeUpかどうか確認 */
 			/* INT2 Interrupt チェック */
 			ret = SpiIORead( ICM42607_INT_STATUS2, (uint8_t *)&wakeup_src_val, sizeof( wakeup_src_val ) );
+			SEGGER_RTT_printf(0, " ICM42607_INT_STATUS2 Error %d, %d\n",ret, wakeup_src_val);	
+
 			SPI_ERR_CHECK( ret, __LINE__ );
 			if ( ret != NRF_SUCCESS )
-			{
+			{		
 				SpiUninit();
 				return ret;
 			}
@@ -2129,14 +2144,14 @@ uint32_t AccGyroReadIntSrc( uint8_t *x_int, uint8_t *y_int, uint8_t *z_int )
 	
 	if ( ret != UTC_SUCCESS )
 	{
-		DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro Read Interrupt Src Error !!!" );
+//		DEBUG_LOG( LOG_ERROR, "!!! Acc/Gyro Read Interrupt Src Error !!!" );
 #if NO_BLE2_NOW		
 		SetBleErrReadCmd( (uint8_t)UTC_BLE_SPI_INIT_ERROR );
 #endif		
 	}
 	else
 	{
-		DEBUG_LOG( LOG_INFO, "Acc/Gyro INT WakeUp SRC=0x%x", wakeup_src_val );
+//		DEBUG_LOG( LOG_INFO, "Acc/Gyro INT WakeUp SRC=0x%x", wakeup_src_val );
 	}
 		
 	return ret;
@@ -2528,7 +2543,64 @@ uint8_t AccGyroGetSendHeader( uint8_t tag_data )
 
 void AccGyroSelfTest( void )
 {
+	uint32_t spi_err ;
+	uint8_t x_int =0;
+	uint8_t y_int =0;
+	uint8_t z_int =0;
 
-	acc_gyro_read_device_id();
+	uint32_t err_code;
+
+	uint16_t fifo_count;
+	ACC_GYRO_DATA_INFO	acc_gyro_data_info;
+
+	spi_err = AccGyroReadIntSrc( &x_int, &y_int, &z_int );
+
+    SEGGER_RTT_printf(0, " %s %d (%d,%d,%d) Success\n", __FUNCTION__,spi_err,x_int,y_int,z_int );
+
+	/* 2020.12.09 Add Clear FIFO ++ */
+	AccGyroValidateClearFifo();
+	/* 2020.12.09 Add Clear FIFO -- */
+	
+	/* SPI Function Initialize */
+	err_code = SpiInit();
+	if ( err_code == NRF_SUCCESS )
+	{
+		err_code = get_acc_gyro_fifo_count( &fifo_count );
+		if ( err_code == NRF_SUCCESS )
+		{
+			for ( uint16_t i = 0; i < fifo_count; i++ )
+			{
+   				SEGGER_RTT_printf(0, "fifo_count = %d\n", fifo_count);
+
+				memset(&acc_gyro_data_info,0,sizeof(acc_gyro_data_info) );
+
+				err_code = reader_acc_gyro_data( (void *)&acc_gyro_data_info );
+				if ( err_code == ACC_GYRO_DATA_COMPLETE )
+				{
+//   					SEGGER_RTT_printf(0, "read OK%d\n");
+					SEGGER_RTT_printf(0, "ACC(%d,%d,%d)\n", acc_gyro_data_info.acc_x_data, acc_gyro_data_info.acc_y_data,acc_gyro_data_info.acc_z_data);				
+//					SEGGER_RTT_printf(0, "GYRO(%d,%d,%d)\n", acc_gyro_data_info.gyro_x_data, acc_gyro_data_info.gyro_y_data,acc_gyro_data_info.gyro_z_data);				
+//					SEGGER_RTT_printf(0, "Timestamp %d, Sid %d\n", acc_gyro_data_info.timestamp, acc_gyro_data_info.sid);				
+//					SEGGER_RTT_printf(0, "Temperature %d, Sid %d\n", acc_gyro_data_info.temperature, acc_gyro_data_info.header);				
+
+				
+				}
+				else if ( err_code != ACC_GYRO_DATA_NOT_COMPLETE )
+				{
+//   					SEGGER_RTT_printf(0, "read incomplete%d\n");		
+				}
+
+
+			}
+
+		}
+		else
+		{
+			TRACE_LOG( TR_ACC_READ_INT_ERROR, 1 );
+		}
+		/* 終了処理 */
+
+	}
+	SpiUninit();	
 
 }

@@ -119,6 +119,8 @@
 
 #define HEARTBEAT_INTERVAL APP_TIMER_TICKS(10000)
 
+#define WORK_IMU_ONLY   1   //  For IMU step debug
+
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
@@ -132,7 +134,7 @@ static void update_status(uint8_t new_status);
 
 static motion_adv_mfg_data_t m_custom_adv_payload =
 {
-    .app_id =       APP_ID,   // 測試用（正式產品請申請）    
+    .app_id =       APP_ID,    
     .device_id =    DEVICE_ID,
     .event =        STATUS_ERROR,
     .posture    =   MOTION_NONE,
@@ -837,6 +839,50 @@ void VerifyRamStart(void)
  */
 extern int spi_main(void);
 
+void GpioSetting(void)
+{
+	uint8_t i;
+//	nrfx_err_t err_code;
+	// unused pin number
+	uint8_t unused_pin[] = {24};
+	
+	//unused gpio pin setting
+	for(i = 0; i < sizeof(unused_pin); i++)
+	{
+		nrf_gpio_cfg(
+			unused_pin[i],
+			NRF_GPIO_PIN_DIR_INPUT,
+			NRF_GPIO_PIN_INPUT_DISCONNECT,
+			NRF_GPIO_PIN_NOPULL,
+			NRF_GPIO_PIN_D0S1,
+			NRF_GPIO_PIN_NOSENSE);
+	}
+
+	// gpiote latch mode
+	NRF_GPIO->DETECTMODE = (uint32_t)(1);
+	// gpiote initialize.
+//	err_code = nrfx_gpiote_init();
+    nrfx_gpiote_init();
+}
+
+#if 0
+void INT_init()
+{
+    ret_code_t err_code;  
+
+    err_code = nrf_drv_gpiote_init();
+    APP_ERROR_CHECK(err_code);
+
+    nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
+    in_config.pull = NRF_GPIO_PIN_PULLUP;
+
+    err_code = nrf_drv_gpiote_in_init(PIN_IN, &in_config, in_pin_handler);
+    APP_ERROR_CHECK(err_code);
+
+    nrf_drv_gpiote_in_event_enable(PIN_IN, true);    
+}
+#endif
+
 int main(void)
 {
     SEGGER_RTT_Init();
@@ -856,12 +902,38 @@ int main(void)
     buttons_leds_init(&erase_bonds);
     power_management_init();
 
+    GpioSetting();
+
     // Trace before BLE
-    SEGGER_RTT_printf(0, "Ready Acc!\n");   
-    AccGyroInitialize(0x00);
+     AccGyroInitialize(0x00);
 
-    AccGyroSelfTest();
+ #if 1  // Test AccGyro Read 
+    while(1)
+    {
+        AccGyroSelfTest();
 
+        nrf_delay_ms( 250 );
+    }            
+#endif         
+
+#if WORK_IMU_ONLY 
+
+    #define ACC_INT1_PIN 12
+    nrf_gpio_cfg_output(ACC_INT1_PIN);
+
+    while (1)
+    {
+        nrf_gpio_pin_set(ACC_INT1_PIN);
+        nrf_delay_ms(500);
+        nrf_gpio_pin_clear(ACC_INT1_PIN);
+        nrf_delay_ms(500);
+
+
+
+   //     AccGyroSelfTest();
+//        nrf_delay_ms( 250 );
+    }   
+#endif
     ble_stack_init();
     gap_params_init();
     gatt_init();
