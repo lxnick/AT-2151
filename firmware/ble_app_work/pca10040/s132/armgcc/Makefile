@@ -53,6 +53,7 @@ SRC_FILES += \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_clock.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_gpiote.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/prs/nrfx_prs.c \
+  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_saadc.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_spi.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_spim.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_uart.c \
@@ -63,6 +64,7 @@ SRC_FILES += \
   $(PROJ_DIR)/ble_motion_service.c \
   $(PROJ_DIR)/spi_main.c \
   $(PROJ_DIR)/library/src/lib_icm42607.c \
+  $(PROJ_DIR)/library/src/lib_adc.c \
   $(PROJ_DIR)/library/src/lib_debug_uart.c \
   $(PROJ_DIR)/library/src/lib_trace_log.c \
   $(PROJ_DIR)/library/src/lib_spi_function.c \

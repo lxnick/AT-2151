@@ -14,36 +14,46 @@
 */
 
 /* Includes --------------------------------------------------------------*/
-#include "lib_common.h"
+//#include "lib_common.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 #include "nrf_drv_saadc.h"
 #include "nrfx_saadc.h"
-#include "state_control.h"
-#include "lib_fifo.h"
-#include "lib_bat.h"
+//#include "state_control.h"
+//#include "lib_fifo.h"
+//#include "lib_bat.h"
 #include "lib_adc.h"
-#include "lib_timer.h"
-#include "lib_trace_log.h"
+//#include "lib_timer.h"
+//#include "lib_trace_log.h"
+
+#include "SEGGER_RTT.h"
 
 /* Definition ------------------------------------------------------------*/
+#define USE_BAT_FIFIO		0	// Do oneshot adc only
+#define BAT_ADC_COUNT		10
+
 #define SAMPLES_IN_BUFFER	1
 
 #define ANALOG_BH_BAT	0
 
 /* Private variables ------------------------------------------------------*/
+#if USE_BAT_FIFIO
 volatile nrf_saadc_value_t g_adc_buffer[2][SAMPLES_IN_BUFFER];
+#endif
 
 static ret_code_t analog_startup_init( void );
 static ret_code_t analog_startup_uninit( void );
 static ret_code_t analog_startup_get_val( int32_t *adc_value );
+
+volatile int32_t bat_level_mv = 0;	
 
 /**
  * @brief SAADC Event Handler
  * @param pAdcEvent SAADC Event Information
  * @retval None
  */
+ #if USE_BAT_FIFIO
 static void saadc_evt_handler( nrf_drv_saadc_evt_t const * pAdcEvent )
 {
 	uint32_t err_code;
@@ -141,6 +151,7 @@ void AnalogUninit( void )
 				  NRF_GPIO_PIN_D0S1,
 				  NRF_GPIO_PIN_NOSENSE);
 }
+#endif
 
 /**
  * @brief 起動時の電圧チェック
@@ -150,8 +161,8 @@ void AnalogUninit( void )
 ret_code_t AnalogStartUpCheck( void )
 {
 	ret_code_t err_code = 0;
-	int32_t bat_volt;
-	
+	int32_t bat_volt = 0;
+
 	err_code = analog_startup_init();
 	if ( err_code == NRF_SUCCESS )
 	{
@@ -160,7 +171,7 @@ ret_code_t AnalogStartUpCheck( void )
 	
 	if ( err_code == NRF_SUCCESS )
 	{
-		DEBUG_LOG( LOG_INFO, "bat: %d", bat_volt );
+//		DEBUG_LOG( LOG_INFO, "bat: %d", bat_volt );
 		/* 電圧値判定処理 */
 		if ( bat_volt <= THRESHOLD_BAT_VOLT )
 		{
@@ -168,6 +179,7 @@ ret_code_t AnalogStartUpCheck( void )
 		}
 		else
 		{
+			bat_level_mv = bat_volt;
 			err_code = BATVOLT_OK;
 		}
 	}
@@ -191,10 +203,10 @@ static ret_code_t analog_startup_init( void )
 
 	/* SAADC Initialize and event handler setup */
 	err_code = nrf_drv_saadc_init( &config_saadc, NULL );
-	LIB_ERR_CHECK( err_code, ADC_INIT, __LINE__ );
+//	LIB_ERR_CHECK( err_code, ADC_INIT, __LINE__ );
 	/* Channel Config */
 	err_code = nrf_drv_saadc_channel_init( ANALOG_BH_BAT, &channel_config );
-	LIB_ERR_CHECK( err_code, ADC_INIT, __LINE__ );
+//	LIB_ERR_CHECK( err_code, ADC_INIT, __LINE__ );
 	
 	return err_code;
 }
@@ -234,7 +246,7 @@ static ret_code_t analog_startup_get_val( int32_t *adc_value )
 	uint16_t idx;
 	
 	/* 10回取得した平均値から電圧値を求める */
-	for ( idx = 0; idx < MAX_GET_BAT_VALUE; idx++ )
+	for ( idx = 0; idx < BAT_ADC_COUNT; idx++ )
 	{
 		/* Dataを取得 */
         err_code = nrfx_saadc_sample_convert( ANALOG_BH_BAT, &temp_value );
@@ -244,7 +256,7 @@ static ret_code_t analog_startup_get_val( int32_t *adc_value )
 		}
 		average_value += temp_value;
 	}
-	average_value /= MAX_GET_BAT_VALUE;
+	average_value /= BAT_ADC_COUNT;
 	
 	calc_battery_val = average_value * 1000 / 1024;
 	calc_battery_val = calc_battery_val * 36 / 10;

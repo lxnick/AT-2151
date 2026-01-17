@@ -88,6 +88,8 @@
 #include "ble_motion_advertising.h"
 
 #include "lib_icm42607.h"
+#include "lib_adc.h"
+
 
 #define DEVICE_NAME                     "BLE Badge"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "Chicony"                   /**< Manufacturer. Will be passed to Device Information Service. */
@@ -128,6 +130,8 @@ APP_TIMER_DEF(m_heartbeat_timer);
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 static ble_motion_t m_motion;
+
+extern int32_t bat_level_mv ;
 
 static void app_status_set(uint8_t status);
 static void update_status(uint8_t new_status);
@@ -617,20 +621,6 @@ void app_status_set(uint8_t status)
 }
 
 static void update_status(uint8_t new_status)
- #if 0 
-{
-    m_custom_adv_payload.status = new_status;
-
-    // 重新送出 Advertising（不中斷連線）
-    ret_code_t err_code = ble_advertising_restart_without_whitelist(&m_advertising);
-
-    if (err_code != NRF_SUCCESS &&
-        err_code != NRF_ERROR_INVALID_STATE)
-    {
-        APP_ERROR_CHECK(err_code);
-    }    
-}
-#else
 {
     ret_code_t err_code;
 
@@ -666,8 +656,6 @@ static void update_status(uint8_t new_status)
         }
     }
 }
-#endif
-
 
 
 static void bsp_event_handler(bsp_event_t event)
@@ -907,7 +895,7 @@ int main(void)
     // Trace before BLE
      AccGyroInitialize(0x00);
 
- #if 1  // Test AccGyro Read 
+ #if 0  // Test AccGyro Read 
     while(1)
     {
         AccGyroSelfTest();
@@ -915,6 +903,15 @@ int main(void)
         nrf_delay_ms( 250 );
     }            
 #endif         
+
+#if 1 // Test Battery Level
+    while(1)
+    {
+        AnalogStartUpCheck();
+        SEGGER_RTT_printf(0, "Battery Level %d\n", bat_level_mv);
+        nrf_delay_ms( 250 );        
+    }
+#endif
 
 #if WORK_IMU_ONLY 
 

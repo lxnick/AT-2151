@@ -22,7 +22,7 @@
 #include "nrfx_saadc.h"
 
 #include "lib_common.h"
-#include "state_control.h"
+//#include "state_control.h"
 
 #ifdef __cplusplus
 extern "C"{
