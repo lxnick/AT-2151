@@ -68,6 +68,8 @@ void AnalogUninit( void );
  */
 ret_code_t AnalogStartUpCheck( void );
 
+float AnalogVoltageOneshot(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -269,3 +269,48 @@ static ret_code_t analog_startup_get_val( int32_t *adc_value )
 	return NRF_SUCCESS;
 }
 
+float AnalogVoltageOneshot(void)
+{
+#if 0	
+	ret_code_t err_code;
+	int32_t average_value = 0;
+	int32_t calc_battery_val;
+	int16_t temp_value = 0;
+	uint16_t idx;
+	
+	/* 10回取得した平均値から電圧値を求める */
+	for ( idx = 0; idx < BAT_ADC_COUNT; idx++ )
+	{
+		/* Dataを取得 */
+        err_code = nrfx_saadc_sample_convert( ANALOG_BH_BAT, &temp_value );
+		if ( err_code != NRF_SUCCESS )
+		{
+			return 0;
+		}
+		average_value += temp_value;
+	}
+	average_value /= BAT_ADC_COUNT;
+	
+	calc_battery_val = average_value * 1000 / 1024;
+	calc_battery_val = calc_battery_val * 36 / 10;
+
+	return calc_battery_val;
+#else
+	ret_code_t err_code = 0;
+	int32_t bat_volt = 0;
+	float voltage = 0;
+
+	err_code = analog_startup_init();
+	if ( err_code == NRF_SUCCESS )
+	{
+		err_code = analog_startup_get_val( &bat_volt );
+	}
+
+	voltage = (float)bat_volt / 1000.0;
+	
+	analog_startup_uninit();
+	
+	return (int16_t) voltage;
+#endif
+}
+

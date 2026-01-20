@@ -90,8 +90,8 @@
 #include "lib_icm42607.h"
 #include "lib_adc.h"
 
+#define DEVICE_NAME                     "B51"                       /**< Name of device. Will be included in the advertising data. */
 
-#define DEVICE_NAME                     "BLE Badge"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "Chicony"                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
 
@@ -119,29 +119,37 @@
 
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
-#define HEARTBEAT_INTERVAL APP_TIMER_TICKS(10000)
-
-#define WORK_IMU_ONLY   1   //  For IMU step debug
+#define HEARTBEAT_INTERVAL APP_TIMER_TICKS(1000)
 
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
-BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
+BLE_ADVERTISING_DEF(m_advertising);   
 APP_TIMER_DEF(m_heartbeat_timer);
 
+static volatile bool m_heartbeat_flag = false;
+static uint32_t m_heartbeat_cnt = 0;
+
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
-static ble_motion_t m_motion;
+//static ble_motion_t m_motion;
 
-extern int32_t bat_level_mv ;
-
-static void app_status_set(uint8_t status);
-static void update_status(uint8_t new_status);
-
+/* YOUR_JOB: Declare all services structure your application is using
+ *  BLE_XYZ_DEF(m_xyz);
+ */
 static motion_adv_mfg_data_t m_custom_adv_payload =
 {
     .app_id =       APP_ID,    
     .device_id =    DEVICE_ID,
     .event =        STATUS_ERROR,
-    .posture    =   MOTION_NONE,
+ //   .index = 0,
+    .x = 0x10,
+    .y = 0x20,
+    .z = 0x30,
+    .bat = 0x40,    
+
+    .one = 1,
+    .two = 2,
+    .three = 3,
+    .four = 4,         
 };
 
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
@@ -155,11 +163,15 @@ static void advertising_start(bool erase_bonds);
 
 
 // Using FICR as device ID
-uint32_t get_device_id(void)
+uint16_t get_device_id(void)
 {
-    uint32_t id0 = NRF_FICR->DEVICEID[0];
-    uint32_t id1 = NRF_FICR->DEVICEID[1];
-    return id0 ^ id1;
+    uint32_t id32 = NRF_FICR->DEVICEID[0];
+
+    SEGGER_RTT_printf(0, "ID32 %08x \n",id32 );    
+    uint16_t id16 = (uint16_t) id32;
+ //   uint32_t id1 = NRF_FICR->DEVICEID[1];
+ //   return id0 ^ id1;
+    return id16;
 }
 
 /**@brief Callback function for asserts in the SoftDevice.
@@ -202,9 +214,11 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
 
 static void heartbeat_timeout_handler(void * p_context)
 {
-    UNUSED_PARAMETER(p_context);
+//    UNUSED_PARAMETER(p_context);
 
-    app_status_set(STATUS_HEARTBEAT);
+    m_heartbeat_flag = true;
+
+//	app_status_set(STATUS_HEARTBEAT);
 }
 
 /**@brief Function for the Timer initialization.
@@ -241,6 +255,7 @@ static void gap_params_init(void)
     err_code = sd_ble_gap_device_name_set(&sec_mode,
                                           (const uint8_t *)DEVICE_NAME,
                                           strlen(DEVICE_NAME));
+	SEGGER_RTT_printf(0, "sd_ble_gap_device_name_set %d\n",err_code);                                    
     APP_ERROR_CHECK(err_code);
 
     /* YOUR_JOB: Use an appearance value matching the application's use case.
@@ -342,9 +357,6 @@ static void services_init(void)
        err_code = ble_yy_service_init(&yys_init, &yy_init);
        APP_ERROR_CHECK(err_code);
      */
-
-    err_code = ble_motion_init(&m_motion);
-    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -477,12 +489,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     {
         case BLE_GAP_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected.");
-            err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-            if (err_code != NRF_SUCCESS && err_code != NRF_ERROR_INVALID_STATE)
-            {
-                APP_ERROR_CHECK(err_code);
-            }
-
+			ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
             // LED indication will be changed when advertising starts.
             break;
 
@@ -527,8 +534,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // No implementation needed.
             break;
     }
-
-    ble_motion_on_ble_evt(p_ble_evt, &m_motion);
 }
 
 
@@ -536,12 +541,18 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
  *
  * @details Initializes the SoftDevice and the BLE event interrupt.
  */
+ bool enable = false;
 static void ble_stack_init(void)
 {
-    ret_code_t err_code;
+    ret_code_t err_code = 0;;
+
+    enable |= nrf_sdh_is_enabled();
+    nrf_sdh_disable_request();
 
     err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);
+
+    enable = !enable;
 
     // Configure the BLE stack using the default settings.
     // Fetch the start address of the application RAM.
@@ -609,55 +620,6 @@ static void delete_bonds(void)
  *
  * @param[in]   event   Event generated when button is pressed.
  */
-
-void app_status_set(uint8_t status)
-{
-    update_status(status);
-
-    if (m_motion.conn_handle != BLE_CONN_HANDLE_INVALID)
-    {
-        ble_motion_status_notify(&m_motion, status);
-    }
-}
-
-static void update_status(uint8_t new_status)
-{
-    ret_code_t err_code;
-
-    m_custom_adv_payload.event = new_status;
-
-    // 1️⃣ 重新設定 advertising data
-    ble_advdata_t advdata;
-    ble_advdata_manuf_data_t manuf_data;
-
-    memset(&advdata, 0, sizeof(advdata));
-
-    manuf_data.company_identifier = COMPANY_ID;
-    manuf_data.data.p_data        = (uint8_t *)&m_custom_adv_payload;
-    manuf_data.data.size          = sizeof(m_custom_adv_payload);
-
-    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-    advdata.include_appearance      = true;
-    advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-    advdata.p_manuf_specific_data   = &manuf_data;
-
- //   err_code = ble_advdata_set(&advdata, NULL);
-    err_code = ble_advertising_advdata_update(&m_advertising, &advdata, NULL);
-    APP_ERROR_CHECK(err_code);
-
-    // 2️⃣ 如果目前沒有連線，才重新啟動 advertising
-    if (m_motion.conn_handle == BLE_CONN_HANDLE_INVALID)
-    {
-        err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-        if (err_code != NRF_SUCCESS &&
-            err_code != NRF_ERROR_INVALID_STATE)
-        {
-            APP_ERROR_CHECK(err_code);
-        }
-    }
-}
-
-
 static void bsp_event_handler(bsp_event_t event)
 {
     ret_code_t err_code;
@@ -687,16 +649,7 @@ static void bsp_event_handler(bsp_event_t event)
                 }
             }
             break; // BSP_EVENT_KEY_0
-        case BSP_EVENT_KEY_1:
-        {   
-            // Simulate posture change
-            m_custom_adv_payload.posture ++;
 
-            app_status_set(STATUS_BUTTON);
-
-            break;
-        } 
-            break;
         default:
             break;
     }
@@ -779,8 +732,7 @@ static void power_management_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-// markout for change to sd_app_evt_wait
-#if 0
+
 /**@brief Function for handling the idle state (main loop).
  *
  * @details If there is no pending log operation, then sleep until next the next event occurs.
@@ -792,7 +744,7 @@ static void idle_state_handle(void)
         nrf_pwr_mgmt_run();
     }
 }
-#endif
+
 
 /**@brief Function for starting advertising.
  */
@@ -817,120 +769,130 @@ void VerifyRamStart(void)
     ret_code_t err_code;
 
     err_code = nrf_sdh_ble_default_cfg_set(APP_BLE_CONN_CFG_TAG, &ram_start);
+    SEGGER_RTT_printf(0, "Ram Start %08x\n",ram_start);
     APP_ERROR_CHECK(err_code);
 
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
 }
 
+static void advertising_update_mfg_data(void)
+{
+    ret_code_t err_code;
+	
+ //   m_custom_adv_payload.event = new_status;
+
+    // 1️⃣ 重新設定 advertising data
+    ble_advdata_t advdata;
+    ble_advdata_manuf_data_t manuf_data;
+
+    memset(&advdata, 0, sizeof(advdata));
+
+    manuf_data.company_identifier = COMPANY_ID;
+    manuf_data.data.p_data        = (uint8_t *)&m_custom_adv_payload;
+    manuf_data.data.size          = sizeof(m_custom_adv_payload) ;
+
+    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata.include_appearance      = true;
+    advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+    advdata.p_manuf_specific_data   = &manuf_data;
+
+ //   err_code = ble_advdata_set(&advdata, NULL);
+    err_code = ble_advertising_advdata_update(&m_advertising, &advdata, NULL);
+    APP_ERROR_CHECK(err_code);
+
+    // 2️⃣ 如果目前沒有連線，才重新啟動 advertising
+  //  if (m_motion.conn_handle == BLE_CONN_HANDLE_INVALID)
+  //  {
+        err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+        if (err_code != NRF_SUCCESS &&
+            err_code != NRF_ERROR_INVALID_STATE)
+        {
+            APP_ERROR_CHECK(err_code);
+        }
+  //  }
+}
+
+void PrintFloat(char* message, float value)
+{
+    int32_t i = (int32_t)value;
+    int32_t f = (int32_t)((value - i) * 1000.0f);
+
+    SEGGER_RTT_printf(0, "%s %d.%03d\n", message, i, f);
+}
+
+static int8_t FloatToInt8(float f, int fmax, int fmin, int nmax, int nmin)
+{
+   /* 防呆：避免除以 0 */
+    if (fmax == fmin)
+    {
+        return nmin;
+    }
+
+    /* Clamp f 到 [fmin, fmax] */
+    if (f < fmin) f = fmin;
+    if (f > fmax) f = fmax;
+
+    /* 線性映射 */
+    float ratio = (f - fmin) / (fmax - fmin);
+    float n     = ratio * (float)(nmax - nmin) + (float)nmin;
+
+    /* round to nearest */
+    if (n >= 0)
+        n += 0.5f;
+    else
+        n -= 0.5f;
+
+    return (int8_t)n;
+    }            
+
+static uint8_t FloatToUint8(float f, int fmax, int fmin, int nmax, int nmin)
+{
+   /* 防呆：避免除以 0 */
+    if (fmax == fmin)
+    {
+        return nmin;
+    }
+
+    /* Clamp f 到 [fmin, fmax] */
+    if (f < fmin) f = fmin;
+    if (f > fmax) f = fmax;
+
+    /* 線性映射 */
+    float ratio = (f - fmin) / (fmax - fmin);
+    float n     = ratio * (float)(nmax - nmin) + (float)nmin;
+
+    /* round to nearest */
+    if (n >= 0)
+        n += 0.5f;
+    else
+        n -= 0.5f;
+
+    return (uint8_t)n;
+}
+
 /**@brief Function for application main entry.
  */
-extern int spi_main(void);
-
-void GpioSetting(void)
-{
-	uint8_t i;
-//	nrfx_err_t err_code;
-	// unused pin number
-	uint8_t unused_pin[] = {24};
-	
-	//unused gpio pin setting
-	for(i = 0; i < sizeof(unused_pin); i++)
-	{
-		nrf_gpio_cfg(
-			unused_pin[i],
-			NRF_GPIO_PIN_DIR_INPUT,
-			NRF_GPIO_PIN_INPUT_DISCONNECT,
-			NRF_GPIO_PIN_NOPULL,
-			NRF_GPIO_PIN_D0S1,
-			NRF_GPIO_PIN_NOSENSE);
-	}
-
-	// gpiote latch mode
-	NRF_GPIO->DETECTMODE = (uint32_t)(1);
-	// gpiote initialize.
-//	err_code = nrfx_gpiote_init();
-    nrfx_gpiote_init();
-}
-
-#if 0
-void INT_init()
-{
-    ret_code_t err_code;  
-
-    err_code = nrf_drv_gpiote_init();
-    APP_ERROR_CHECK(err_code);
-
-    nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
-    in_config.pull = NRF_GPIO_PIN_PULLUP;
-
-    err_code = nrf_drv_gpiote_in_init(PIN_IN, &in_config, in_pin_handler);
-    APP_ERROR_CHECK(err_code);
-
-    nrf_drv_gpiote_in_event_enable(PIN_IN, true);    
-}
-#endif
-
 int main(void)
-{
+    {
     SEGGER_RTT_Init();
-    uint32_t loop_count = 0;
 
-    ret_code_t err_code;    
+    ret_code_t err_code;  
+    float battery;
+    float ax, ay, az;
+
     bool erase_bonds;
-//    SCB->VTOR = 0x00026000;    
-    SEGGER_RTT_printf(0, "Hello RTT!\n");
-
+	SEGGER_RTT_printf(0, "Hello RTT!\n");
     m_custom_adv_payload.device_id = get_device_id();
-    //VerifyRamStart();
+
+    SEGGER_RTT_printf(0, "DEVICE ID %08x \n", m_custom_adv_payload.device_id );
+    SEGGER_RTT_printf(0, "DEVICE_NAME %s \n", DEVICE_NAME);
 
     // Initialize.
     log_init();
     timers_init();
     buttons_leds_init(&erase_bonds);
     power_management_init();
-
-    GpioSetting();
-
-    // Trace before BLE
-     AccGyroInitialize(0x00);
-
- #if 0  // Test AccGyro Read 
-    while(1)
-    {
-        AccGyroSelfTest();
-
-        nrf_delay_ms( 250 );
-    }            
-#endif         
-
-#if 1 // Test Battery Level
-    while(1)
-    {
-        AnalogStartUpCheck();
-        SEGGER_RTT_printf(0, "Battery Level %d\n", bat_level_mv);
-        nrf_delay_ms( 250 );        
-    }
-#endif
-
-#if WORK_IMU_ONLY 
-
-    #define ACC_INT1_PIN 12
-    nrf_gpio_cfg_output(ACC_INT1_PIN);
-
-    while (1)
-    {
-        nrf_gpio_pin_set(ACC_INT1_PIN);
-        nrf_delay_ms(500);
-        nrf_gpio_pin_clear(ACC_INT1_PIN);
-        nrf_delay_ms(500);
-
-
-
-   //     AccGyroSelfTest();
-//        nrf_delay_ms( 250 );
-    }   
-#endif
     ble_stack_init();
     gap_params_init();
     gatt_init();
@@ -945,22 +907,54 @@ int main(void)
     application_timers_start();
 
     advertising_start(erase_bonds);
-    app_status_set(STATUS_BOOT); 
 
    err_code = app_timer_start(m_heartbeat_timer,
                                HEARTBEAT_INTERVAL,
                                NULL);
-    APP_ERROR_CHECK(err_code);    
-
+    SEGGER_RTT_printf(0, "app_timer_start %d \n", err_code);
 
 
     // Enter main loop.
     for (;;)
     {
-        SEGGER_RTT_printf(0, "Loop RTT %d!\n", loop_count++);     
+        if (m_heartbeat_flag)
+        {
+            m_heartbeat_flag = false;
+            m_heartbeat_cnt++;
+
+            SEGGER_RTT_printf(0, "[HB] %lu sec, adv running\n", m_heartbeat_cnt);
+
+            m_custom_adv_payload.event ++;
+            SEGGER_RTT_printf(0, "[HB] Index %d\n", m_custom_adv_payload.event);
+
+            battery = AnalogVoltageOneshot();
+            SEGGER_RTT_printf(0, "[HB] Voltage mv %d\n", battery * 1000 );
+
+            m_custom_adv_payload.bat = FloatToUint8(  battery, 4.0, 0.0, 250, 0);
+            SEGGER_RTT_printf(0, "[HB] Bat %d\n", m_custom_adv_payload.bat);
+
+     		AccGyroInitialize(0x00);
+
+            AccGyroOneshotAcc(&ax,&ay,&az); 
+            SEGGER_RTT_printf(0, "[HB] AX %d\n", ax * 1000 );     
+            SEGGER_RTT_printf(0, "[HB] AY %d\n", ay * 1000 );  
+            SEGGER_RTT_printf(0, "[HB] AX %d\n", az * 1000 );  
+     
+            m_custom_adv_payload.x = FloatToInt8(  ax, 1.0, -1.0, 100, -100);   
+            m_custom_adv_payload.y = FloatToInt8(  ay, 1.0, -1.0, 100, -100); 
+            m_custom_adv_payload.z = FloatToInt8(  az, 1.0, -1.0, 100, -100); 
+
+            SEGGER_RTT_printf(0, "[HB] XYZ %d,%d,%d\n", m_custom_adv_payload.x, m_custom_adv_payload.y, m_custom_adv_payload.z);
+    
+            advertising_update_mfg_data();
+
+            // 這裡可以放：
+            // - LED toggle
+            // - 狀態統計
+            // - 之後要送 BLE notify 的 flag
+        }
           
-//        idle_state_handle();
-        sd_app_evt_wait();         
+        idle_state_handle();
     }
 }
 

@@ -12,7 +12,7 @@ extern "C" {
 
 #define COMPANY_ID          0xFFFF
 #define APP_ID              0x3412
-#define DEVICE_ID           0x87654321
+#define DEVICE_ID           0x0180
 
 #define STATUS_ERROR        0x00
 #define STATUS_BOOT         0x01
@@ -26,9 +26,19 @@ extern "C" {
 typedef struct __attribute__((packed))
 {
     uint16_t  app_id;       // 
-    uint32_t  device_id;    // 
+    uint16_t  device_id;    // 
     uint8_t  event;       // 
-    uint8_t  posture;
+ //	uint8_t  index;
+    uint8_t  x;
+    uint8_t  y;
+    uint8_t  z;
+    uint8_t  bat;
+
+    uint8_t  one;
+    uint8_t  two;
+    uint8_t  three; 
+    uint8_t  four;         
+
 } motion_adv_mfg_data_t;
 
 #ifdef __cplusplus

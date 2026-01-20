@@ -621,5 +621,7 @@ uint8_t AccGyroGetSendHeader( uint8_t tag_data );
 
 void AccGyroSelfTest( void );
 
+void AccGyroOneshotAcc( float* fax, float* fay, float* faz);
+
 #endif
 
