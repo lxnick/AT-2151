@@ -2,7 +2,7 @@ PROJECT_NAME     := ble_app_blinky_c_pca10056_s140
 TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := ../../../../../..
+SDK_ROOT := ../../../../../../nRF5_SDK/nRF5_SDK_17.1.0_ddde560
 PROJ_DIR := ../../..
 
 $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
