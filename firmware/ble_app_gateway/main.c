@@ -77,7 +77,7 @@
 #include "bleadv_queue.h"
 
 #include "bleadv_formater.h"
-#include "uarte_tx.h"
+#include "uarte_pusher.h"
 
 int main(void)
 {
@@ -87,7 +87,8 @@ int main(void)
     bleadv_queue_init();    
     bleadv_sniffer_start();
 
-    uarte_tx_init();
+ //   uarte_tx_init();
+    uarte_pusher_init();
 
     while (true)
     {
@@ -106,7 +107,10 @@ int main(void)
 
             bleadv_packet_output(&pkt, buffer, sizeof(buffer));
 
-            uarte_tx_send((uint8_t *)buffer, strlen(buffer));
+//            uarte_tx_send((uint8_t *)buffer, strlen(buffer));
+            uarte_pusher_push((uint8_t *)buffer, strlen(buffer));
+
+
             SEGGER_RTT_printf(0, "%s\n",buffer);
 
             // TODO:
