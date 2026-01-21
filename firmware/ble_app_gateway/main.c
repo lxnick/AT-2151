@@ -94,10 +94,11 @@ int main(void)
        if (bleadv_queue_pop(&pkt))
         {
             /* 這裡才是安全區 */
-            SEGGER_RTT_printf(0, "---------------\n");            
-            SEGGER_RTT_printf(0, "ADV RSSI=%d len=%d\n", pkt.rssi, pkt.data_len);
+//            SEGGER_RTT_printf(0, "LOOP---------------\n");            
+ //           SEGGER_RTT_printf(0, "ADV RSSI=%d len=%d\n", pkt.rssi, pkt.data_len);
 
-            bleadv_dump_packet(&pkt);
+//            bleadv_dump_packet(&pkt);
+            bleadv_packet_print(&pkt);
 
             // TODO:
             // 1. parse manufacturer data

@@ -25,7 +25,7 @@
 
 static int session = 0;
 
-void make_c_string(uint8_t* buffer, int size,  uint8_t *data, uint16_t len)
+void make_c_string(char* buffer, int size,  uint8_t *data, uint16_t len)
 {
     if ( len >= size)
         len = size-1;
@@ -36,7 +36,7 @@ void make_c_string(uint8_t* buffer, int size,  uint8_t *data, uint16_t len)
     buffer[len] = 0;        
 }
 
-void make_uuid16_string(uint8_t* buffer, int size,  uint8_t *data, uint16_t len)
+void make_uuid16_string(char* buffer, int size,  uint8_t *data, uint16_t len)
 {
     for (uint8_t j = 0; j + 1 < len; j += 2)
     {
@@ -57,7 +57,7 @@ void make_uuid16_string(uint8_t* buffer, int size,  uint8_t *data, uint16_t len)
     }  
 }
 
-void make_uuid128_string(uint8_t* buffer, int size, uint8_t* data, uint16_t len)
+void make_uuid128_string(char* buffer, int size, uint8_t* data, uint16_t len)
 {
     for (int j = 15; j >= 0; j--)
     {
@@ -80,8 +80,8 @@ int bleadv_data_formater(uint8_t *data, uint16_t len)
     uint16_t i = 0;
     uint16_t appearance;   
     
-    uint8_t string_buffer[32];
-    uint8_t uuid_buffer[64];
+    char string_buffer[32];
+    char uuid_buffer[64];
 
     NRF_LOG_INFO("\nSESSION %d", session);   
     session ++;      
@@ -167,8 +167,8 @@ void bleadv_dump_data(uint8_t *data, uint16_t len)
     uint16_t i = 0;
     uint16_t appearance;   
     
-    uint8_t string_buffer[32];
-    uint8_t uuid_buffer[64];
+    char string_buffer[32];
+    char uuid_buffer[64];
 
     SEGGER_RTT_printf(0, "Data\n");  
     session ++;      
@@ -252,7 +252,105 @@ void bleadv_dump_packet(bleadv_packet_t* pkt)
     SEGGER_RTT_printf(0, "--addr %s\n", addr_str); 
 
     bleadv_dump_data(pkt->data, pkt->data_len);
+}
 
+void bleadv_packet_manufacture(bleadv_manufacturer_data* manu,bleadv_format_data* format )
+{
+    format->company_id = manu->company_id;
+    format->app_id = manu->app_id;
+    format->device_id = manu->device_id;
+    format->event = manu->event;
+
+    format->ax = manu_imu_to_float( manu->x );
+    format->ay = manu_imu_to_float( manu->y );  
+    format->az = manu_imu_to_float( manu->z );
+    format->gx = manu_imu_to_float( 0 );
+    format->gy = manu_imu_to_float( 0 );
+    format->gz = manu_imu_to_float( 0 );
+
+    format->battery = manu_bat_to_float(manu->bat);
+}
+
+void bleadv_packet_format(bleadv_packet_t* packet,bleadv_format_data* format )
+{
+    memset(format,0, sizeof(bleadv_format_data) );
+
+    // Get BLE packet info
+    format->addr_type = packet->addr_type;
+    format->rssi = packet->rssi;
+    ble_addr_to_str(packet->addr, format->bt_addr, sizeof(format->bt_addr));  
+    
+    // Parse BLE packet data
+    uint8_t *data_ptr = packet->data;
+    uint16_t data_length = packet->data_len;
+    uint16_t i = 0;   
+
+    while (i < data_length)
+    {
+        // Length-Type-Value coding
+        uint8_t field_len = data_ptr[i];
+        if (field_len == 0) break;
+
+        uint8_t type = data_ptr[i + 1];
+        uint8_t *value = &data_ptr[i + 2];
+        uint8_t value_len = field_len - 1;
+
+        switch (type)
+        {
+        case AD_TYPE_COMPLETE_LOCAL_NAME:
+            make_c_string(format->device_name, sizeof(format->device_name), value, value_len ); 
+            break;             
+        case AD_TYPE_SHORT_LOCAL_NAME:
+            if ( strlen(format->device_name) == 0)        
+                make_c_string(format->device_name, sizeof(format->device_name), value, value_len );        
+            break;
+        case AD_TYPE_MANUFACTURER_SPECIFIC:
+            bleadv_packet_manufacture( (bleadv_manufacturer_data*) value, format);
+            break;
+
+        case AD_TYPE_FLAGS:
+        case AD_TYPE_APPEARANCE:
+        default:
+            break;
+        }
+
+        i += field_len + 1;
+    }
+
+}
+
+void bleadv_packet_print(bleadv_packet_t* packet)
+{
+    bleadv_format_data format;
+
+    memset(&format,0, sizeof(bleadv_format_data) );
+
+    bleadv_packet_format(packet, &format);
+
+    if (strlen(format.device_name) == 0 )
+        return;    
+
+    SEGGER_RTT_printf(0, "Packet:-------------------\n");       
+    SEGGER_RTT_printf(0, "--RSSI %d\n", format.rssi);   
+//    SEGGER_RTT_printf(0, "--ADDR TYPE %d\n", format.addr_type); 
+    SEGGER_RTT_printf(0, "--ADDR %s\n", format.bt_addr); 
+    SEGGER_RTT_printf(0, "--NAME %s\n", format.device_name); 
+
+    if (format.company_id != COMPANY_ID )
+        return ;    
+
+    SEGGER_RTT_printf(0, "--Company:%04x, APP=%04x, DEVICE=%04x\n", format.company_id, format.app_id,format.device_id); 
+
+
+
+
+    SEGGER_RTT_printf(0, "--EVENT %d\n", format.event); 
+
+    SEGGER_RTT_printf(0, "--ACCL %d,%d,%d\n", format.ax * 100, format.ay * 100, format.az * 100);   
+    SEGGER_RTT_printf(0, "--GYRO %d,%d,%d\n", format.gx * 100, format.gy * 100, format.gz * 100);    
+    SEGGER_RTT_printf(0, "--BAT  %d\n", format.battery * 100); 
 
 
 }
+
+
