@@ -60,6 +60,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/bsp/bsp.c \
   $(SDK_ROOT)/components/libraries/bsp/bsp_btn_ble.c \
   $(PROJ_DIR)/main.c \
+  $(PROJ_DIR)/bleadv_manufacturer.c \
   $(PROJ_DIR)/library/src/lib_icm42607.c \
   $(PROJ_DIR)/library/src/lib_adc.c \
   $(PROJ_DIR)/library/src/lib_debug_uart.c \

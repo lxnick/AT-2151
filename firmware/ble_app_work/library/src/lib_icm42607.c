@@ -1161,7 +1161,7 @@ static nrfx_err_t acc_gyro_read_device_id( void )
 		DEBUG_LOG( LOG_ERROR, "Acc/Gyro Device ID Failed : 0x%x", device_id );
 	}
 	
-	SEGGER_RTT_printf(0, "%s device_id = %d\n", device_id );			
+//	SEGGER_RTT_printf(0, "%s device_id = %d\n", device_id );			
 	return err_code;
 
 }
@@ -2092,7 +2092,7 @@ uint32_t AccGyroReadIntSrc( uint8_t *x_int, uint8_t *y_int, uint8_t *z_int )
 			/* INT2 PinによるWakeUpかどうか確認 */
 			/* INT2 Interrupt チェック */
 			ret = SpiIORead( ICM42607_INT_STATUS2, (uint8_t *)&wakeup_src_val, sizeof( wakeup_src_val ) );
-			SEGGER_RTT_printf(0, " ICM42607_INT_STATUS2 Error %d, %d\n",ret, wakeup_src_val);	
+//			SEGGER_RTT_printf(0, " ICM42607_INT_STATUS2 Error %d, %d\n",ret, wakeup_src_val);	
 
 			SPI_ERR_CHECK( ret, __LINE__ );
 			if ( ret != NRF_SUCCESS )

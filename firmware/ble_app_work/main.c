@@ -87,6 +87,8 @@
 #include "ble_motion_service.h"
 #include "ble_motion_advertising.h"
 
+#include "bleadv_manufacturer.h"
+
 #include "lib_icm42607.h"
 #include "lib_adc.h"
 
@@ -821,60 +823,12 @@ void PrintFloat(char* message, float value)
     SEGGER_RTT_printf(0, "%s %d.%03d\n", message, i, f);
 }
 
-static int8_t FloatToInt8(float f, int fmax, int fmin, int nmax, int nmin)
-{
-   /* 防呆：避免除以 0 */
-    if (fmax == fmin)
-    {
-        return nmin;
-    }
 
-    /* Clamp f 到 [fmin, fmax] */
-    if (f < fmin) f = fmin;
-    if (f > fmax) f = fmax;
-
-    /* 線性映射 */
-    float ratio = (f - fmin) / (fmax - fmin);
-    float n     = ratio * (float)(nmax - nmin) + (float)nmin;
-
-    /* round to nearest */
-    if (n >= 0)
-        n += 0.5f;
-    else
-        n -= 0.5f;
-
-    return (int8_t)n;
-    }            
-
-static uint8_t FloatToUint8(float f, int fmax, int fmin, int nmax, int nmin)
-{
-   /* 防呆：避免除以 0 */
-    if (fmax == fmin)
-    {
-        return nmin;
-    }
-
-    /* Clamp f 到 [fmin, fmax] */
-    if (f < fmin) f = fmin;
-    if (f > fmax) f = fmax;
-
-    /* 線性映射 */
-    float ratio = (f - fmin) / (fmax - fmin);
-    float n     = ratio * (float)(nmax - nmin) + (float)nmin;
-
-    /* round to nearest */
-    if (n >= 0)
-        n += 0.5f;
-    else
-        n -= 0.5f;
-
-    return (uint8_t)n;
-}
 
 /**@brief Function for application main entry.
  */
 int main(void)
-    {
+{
     SEGGER_RTT_Init();
 
     ret_code_t err_code;  
@@ -922,29 +876,33 @@ int main(void)
             m_heartbeat_flag = false;
             m_heartbeat_cnt++;
 
-            SEGGER_RTT_printf(0, "[HB] %lu sec, adv running\n", m_heartbeat_cnt);
+            SEGGER_RTT_printf(0, "[HB] -------------------\n");            
+//           SEGGER_RTT_printf(0, "[HB] %lu sec, adv running\n", m_heartbeat_cnt);
 
             m_custom_adv_payload.event ++;
             SEGGER_RTT_printf(0, "[HB] Index %d\n", m_custom_adv_payload.event);
 
             battery = AnalogVoltageOneshot();
-            SEGGER_RTT_printf(0, "[HB] Voltage mv %d\n", battery * 1000 );
+            SEGGER_RTT_printf(0, "[HB] Voltage mv %d\n", (int) (battery * 1000) );
 
-            m_custom_adv_payload.bat = FloatToUint8(  battery, 4.0, 0.0, 250, 0);
-            SEGGER_RTT_printf(0, "[HB] Bat %d\n", m_custom_adv_payload.bat);
+            m_custom_adv_payload.bat = manu_bat_to_uint8(  battery);
 
+            SEGGER_RTT_printf(0, "[HB] Voltage %d\n", m_custom_adv_payload.bat);
+   
      		AccGyroInitialize(0x00);
-
             AccGyroOneshotAcc(&ax,&ay,&az); 
-            SEGGER_RTT_printf(0, "[HB] AX %d\n", ax * 1000 );     
-            SEGGER_RTT_printf(0, "[HB] AY %d\n", ay * 1000 );  
-            SEGGER_RTT_printf(0, "[HB] AX %d\n", az * 1000 );  
+            SEGGER_RTT_printf(0, "[HB] AX %d\n", (int)(ax * 1000) );     
+            SEGGER_RTT_printf(0, "[HB] AY %d\n", (int)(ay * 1000) );  
+            SEGGER_RTT_printf(0, "[HB] AZ %d\n", (int)(az * 1000) );  
      
-            m_custom_adv_payload.x = FloatToInt8(  ax, 1.0, -1.0, 100, -100);   
-            m_custom_adv_payload.y = FloatToInt8(  ay, 1.0, -1.0, 100, -100); 
-            m_custom_adv_payload.z = FloatToInt8(  az, 1.0, -1.0, 100, -100); 
+            m_custom_adv_payload.x = manu_imu_to_int8(  ax);   
+            m_custom_adv_payload.y = manu_imu_to_int8(  ay); 
+            m_custom_adv_payload.z = manu_imu_to_int8(  az); 
 
-            SEGGER_RTT_printf(0, "[HB] XYZ %d,%d,%d\n", m_custom_adv_payload.x, m_custom_adv_payload.y, m_custom_adv_payload.z);
+            SEGGER_RTT_printf(0, "[HB] XYZ %d,%d,%d\n", 
+                m_custom_adv_payload.x, 
+                m_custom_adv_payload.y, 
+                m_custom_adv_payload.z);
     
             advertising_update_mfg_data();
 

@@ -304,13 +304,14 @@ float AnalogVoltageOneshot(void)
 	if ( err_code == NRF_SUCCESS )
 	{
 		err_code = analog_startup_get_val( &bat_volt );
+//		SEGGER_RTT_printf(0, "[HB] Battery mv %d, %d\n", bat_volt, err_code );		
 	}
 
 	voltage = (float)bat_volt / 1000.0;
 	
 	analog_startup_uninit();
 	
-	return (int16_t) voltage;
+	return voltage;
 #endif
 }
 

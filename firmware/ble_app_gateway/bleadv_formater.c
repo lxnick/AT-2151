@@ -254,12 +254,19 @@ void bleadv_dump_packet(bleadv_packet_t* pkt)
     bleadv_dump_data(pkt->data, pkt->data_len);
 }
 
+bleadv_manufacturer_data backup;
+
 void bleadv_packet_manufacture(bleadv_manufacturer_data* manu,bleadv_format_data* format )
 {
     format->company_id = manu->company_id;
     format->app_id = manu->app_id;
     format->device_id = manu->device_id;
     format->event = manu->event;
+
+//    SEGGER_RTT_printf(0, "-> ax %d\n", manu->x);   
+//    SEGGER_RTT_printf(0, "-> ay %d\n", manu->y);  
+//    SEGGER_RTT_printf(0, "-> az %d\n", manu->z); 
+//    SEGGER_RTT_printf(0, "-> bat %d\n", manu->bat);                 
 
     format->ax = manu_imu_to_float( manu->x );
     format->ay = manu_imu_to_float( manu->y );  
@@ -305,6 +312,7 @@ void bleadv_packet_format(bleadv_packet_t* packet,bleadv_format_data* format )
                 make_c_string(format->device_name, sizeof(format->device_name), value, value_len );        
             break;
         case AD_TYPE_MANUFACTURER_SPECIFIC:
+            memcpy(&backup,value, sizeof(backup) );
             bleadv_packet_manufacture( (bleadv_manufacturer_data*) value, format);
             break;
 
@@ -319,6 +327,33 @@ void bleadv_packet_format(bleadv_packet_t* packet,bleadv_format_data* format )
 
 }
 
+void bleadv_packet_output(bleadv_packet_t* packet, char* buffer, int size)
+{
+    bleadv_format_data format;
+
+    memset(&format,0, sizeof(bleadv_format_data) );
+
+    bleadv_packet_format(packet, &format);
+
+    if (strlen(format.device_name) == 0 )
+        return;   
+
+    if (format.company_id != COMPANY_ID )
+        return ;    
+
+    if (format.app_id != APP_ID )
+        return ;    
+    
+    int voltage = (int)(format.battery * 100);
+    int ax = (int)(format.ax * 100);   
+    int ay = (int)(format.ay * 100); 
+    int az = (int)(format.az * 100); 
+
+    snprintf(buffer,size,"$$$?index=%d&x=%d&y=%d&z=%d&gx=%d&gy=%d&gz=%d&bt_addr=%s&user_id=%04x&upload_time=%s&battery=%d###",
+        format.event,
+        ax,ay,az,0,0,0,format.bt_addr,format.device_id, "2026-01-22T10:30" , voltage);   
+}
+
 void bleadv_packet_print(bleadv_packet_t* packet)
 {
     bleadv_format_data format;
@@ -331,26 +366,32 @@ void bleadv_packet_print(bleadv_packet_t* packet)
         return;    
 
     SEGGER_RTT_printf(0, "Packet:-------------------\n");       
-    SEGGER_RTT_printf(0, "--RSSI %d\n", format.rssi);   
+ //   SEGGER_RTT_printf(0, "--RSSI %d\n", format.rssi);   
 //    SEGGER_RTT_printf(0, "--ADDR TYPE %d\n", format.addr_type); 
-    SEGGER_RTT_printf(0, "--ADDR %s\n", format.bt_addr); 
-    SEGGER_RTT_printf(0, "--NAME %s\n", format.device_name); 
+
+
 
     if (format.company_id != COMPANY_ID )
         return ;    
 
+    if (format.app_id != APP_ID )
+        return ;   
+
+    SEGGER_RTT_printf(0, "--NAME %s\n", format.device_name); 
+    SEGGER_RTT_printf(0, "--ADDR %s\n", format.bt_addr); 
     SEGGER_RTT_printf(0, "--Company:%04x, APP=%04x, DEVICE=%04x\n", format.company_id, format.app_id,format.device_id); 
-
-
 
 
     SEGGER_RTT_printf(0, "--EVENT %d\n", format.event); 
 
-    SEGGER_RTT_printf(0, "--ACCL %d,%d,%d\n", format.ax * 100, format.ay * 100, format.az * 100);   
-    SEGGER_RTT_printf(0, "--GYRO %d,%d,%d\n", format.gx * 100, format.gy * 100, format.gz * 100);    
-    SEGGER_RTT_printf(0, "--BAT  %d\n", format.battery * 100); 
+    SEGGER_RTT_printf(0, "--AX %d\n",backup.x);     
+    SEGGER_RTT_printf(0, "--AY %d\n",backup.y);  
+    SEGGER_RTT_printf(0, "--AZ %d\n",backup.z);  
+    SEGGER_RTT_printf(0, "--BAT %d\n",backup.bat);          
 
-
+    SEGGER_RTT_printf(0, "--ACCL %d,%d,%d\n", (int) (format.ax * 100), (int) (format.ay * 100), (int) (format.az * 100));   
+    SEGGER_RTT_printf(0, "--GYRO %d,%d,%d\n", (int) (format.gx * 100), (int) (format.gy * 100), (int) (format.gz * 100));    
+    SEGGER_RTT_printf(0, "--BAT  %d\n", (int)(format.battery * 100)); 
 }
 
 

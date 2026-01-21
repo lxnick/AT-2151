@@ -91,6 +91,8 @@ int main(void)
     {
         bleadv_packet_t pkt;
 
+        char buffer[128];
+
        if (bleadv_queue_pop(&pkt))
         {
             /* 這裡才是安全區 */
@@ -98,7 +100,11 @@ int main(void)
  //           SEGGER_RTT_printf(0, "ADV RSSI=%d len=%d\n", pkt.rssi, pkt.data_len);
 
 //            bleadv_dump_packet(&pkt);
-            bleadv_packet_print(&pkt);
+//            bleadv_packet_print(&pkt);
+
+            bleadv_packet_output(&pkt, buffer, sizeof(buffer));
+
+            SEGGER_RTT_printf(0, "%s\n",buffer);
 
             // TODO:
             // 1. parse manufacturer data
