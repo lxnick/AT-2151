@@ -3,9 +3,15 @@
 #include <string.h>
 
 /* ---------- Config ---------- */
-
+#ifdef BOARD_PCA10056
 #define UARTE_TX_PIN  30   // 依你的板子
 #define UARTE_RX_PIN  31
+#endif 
+
+#ifdef BOARD_PCA10040
+#define UARTE_TX_PIN  10   // 依你的板子
+#define UARTE_RX_PIN  11
+#endif
 
 #define UARTE_PUSHER_BUF_SIZE 512
 

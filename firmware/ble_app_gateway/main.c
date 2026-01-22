@@ -79,10 +79,39 @@
 #include "bleadv_formater.h"
 #include "uarte_pusher.h"
 
+#include "seq_tracker.h"
+
+/*
+nrfjprog --memrd 0x10001208
+0xFFFFFFFE NFC OFF
+0xFFFFFFFF NFC ON
+Disable NFC 
+nrfjprog --memwr 0x10001208 --val 0xFFFFFFFE
+*/
+#if 1
+static void nfc_pin_check(void)
+{
+    if ((NRF_UICR->NFCPINS & UICR_NFCPINS_PROTECT_Msk)
+        == (UICR_NFCPINS_PROTECT_NFC << UICR_NFCPINS_PROTECT_Pos))
+    {
+        SEGGER_RTT_printf(0, "NFC Locked!\n");         
+        SEGGER_RTT_printf(0, "NFC pins enabled! P0.09/P0.10 unusable");         
+
+        while (1);
+    }
+    else
+    {
+        SEGGER_RTT_printf(0, "NFC not locked\n");     
+    }
+}
+    #endif
+
 int main(void)
 {
     SEGGER_RTT_Init();
     SEGGER_RTT_printf(0, "RTT Gateway!\n");    
+
+    nfc_pin_check();
 
     bleadv_queue_init();    
     bleadv_sniffer_start();
@@ -93,6 +122,7 @@ int main(void)
     while (true)
     {
         bleadv_packet_t pkt;
+        bleadv_format_data format;
 
         char buffer[128];
 
@@ -104,8 +134,22 @@ int main(void)
 
 //            bleadv_dump_packet(&pkt);
 //            bleadv_packet_print(&pkt);
+            memset(&format,0, sizeof(bleadv_format_data) );
+            bleadv_packet_format(&pkt, &format);
 
-            bleadv_packet_output(&pkt, buffer, sizeof(buffer));
+            if (format.company_id != COMPANY_ID )
+                continue;      
+
+            if (format.app_id != APP_ID )
+                continue;   
+
+            if (strlen(format.device_name) == 0 )
+                continue;            
+
+//            if (! seq_tracker_accept(format.device_id, format.event))
+//               continue;
+
+            bleadv_packet_output(&format, buffer, sizeof(buffer));
 
 //            uarte_tx_send((uint8_t *)buffer, strlen(buffer));
             uarte_pusher_push((uint8_t *)buffer, strlen(buffer));

@@ -42,8 +42,9 @@ void bleadv_dump_packet(bleadv_packet_t* packet);
 
 void bleadv_packet_print(bleadv_packet_t* packet);
 //void bleadv_packet_format(bleadv_packet_t* packet,bleadv_format_data* format );
+void bleadv_packet_format(bleadv_packet_t* packet,bleadv_format_data* format );
 
-void bleadv_packet_output(bleadv_packet_t*, char* buffer, int size);
+void bleadv_packet_output(bleadv_format_data* format, char* buffer, int size);
 
 
 #endif
