@@ -47,6 +47,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "nrf_delay.h"
 #include "nrf_sdh.h"
 #include "nrf_sdh_ble.h"
 #include "nrf_sdh_soc.h"
@@ -74,12 +75,20 @@
 #include "SEGGER_RTT.h"
 
 #include "bleadv_sniffer.h"
+#include "bleadv_scan.h"
+
 #include "bleadv_queue.h"
 
 #include "bleadv_formater.h"
 #include "uarte_pusher.h"
 
 #include "seq_tracker.h"
+
+#define TEST_UART_DIRECT    0
+#define TEST_BLE_SCAN       0
+
+#define TRACE_ADV_INFO      1
+
 
 /*
 nrfjprog --memrd 0x10001208
@@ -88,7 +97,6 @@ nrfjprog --memrd 0x10001208
 Disable NFC 
 nrfjprog --memwr 0x10001208 --val 0xFFFFFFFE
 */
-#if 1
 static void nfc_pin_check(void)
 {
     if ((NRF_UICR->NFCPINS & UICR_NFCPINS_PROTECT_Msk)
@@ -104,7 +112,6 @@ static void nfc_pin_check(void)
         SEGGER_RTT_printf(0, "NFC not locked\n");     
     }
 }
-    #endif
 
 int main(void)
 {
@@ -113,12 +120,38 @@ int main(void)
 
     nfc_pin_check();
 
-    bleadv_queue_init();    
-    bleadv_sniffer_start();
+    app_timer_init();
 
- //   uarte_tx_init();
+    bleadv_queue_init();    
     uarte_pusher_init();
 
+ #if TEST_BLE_SCAN   
+    SEGGER_RTT_printf(0, "BLE scan!\n");   
+    bleadv_scan_test();
+ #else
+     SEGGER_RTT_printf(0, "BLE sniffer!\n");
+    bleadv_sniffer_start();
+ #endif   
+
+
+#if TEST_UART_DIRECT
+
+    SEGGER_RTT_printf(0, "Test UART pattern\n");  
+
+ //   int loop_count = 0;
+ //    char buffer[128];
+     char sample[]="$$$x=61&y=-74&z=-21&gx=0&gy=0&gz=0&bt_addr=E4%3aC6%3aC6%3aA4%3a7B%3aCE&user_id=929a&upload_time=2026-01-22T10%3a30&battery=316###";
+
+    while (true)
+    {
+ //       snprintf(buffer,sizeof(buffer), "Hello Gateway UART %d\r\n",loop_count );
+
+        uarte_pusher_push((uint8_t *)sample, strlen(sample));
+        SEGGER_RTT_printf(0, "%s\n",sample);
+        nrf_delay_ms(1000);
+    }
+
+#else
     while (true)
     {
         bleadv_packet_t pkt;
@@ -136,6 +169,11 @@ int main(void)
 //            bleadv_packet_print(&pkt);
             memset(&format,0, sizeof(bleadv_format_data) );
             bleadv_packet_format(&pkt, &format);
+
+#if TRACE_ADV_INFO
+            if (strlen(format.device_name) != 0 )
+                SEGGER_RTT_printf(0, "%s\n", format.device_name);  
+#endif            
 
             if (format.company_id != COMPANY_ID )
                 continue;      
@@ -155,7 +193,7 @@ int main(void)
             uarte_pusher_push((uint8_t *)buffer, strlen(buffer));
 
 
-            SEGGER_RTT_printf(0, "%s\n",buffer);
+ //           SEGGER_RTT_printf(0, "%s\n",buffer);
 
             // TODO:
             // 1. parse manufacturer data
@@ -168,6 +206,7 @@ int main(void)
             __WFE();
         }
     }
+#endif    
 }
 
 

@@ -39,8 +39,11 @@
 #define APP_BLE_CONN_CFG_TAG    1
 #define APP_BLE_OBSERVER_PRIO   3
 
+#define BIG_SCAN_BUFFER         (1024)
+
 /* Scan buffer (required by SoftDevice) */
-static uint8_t m_scan_buffer_data[BLE_GAP_SCAN_BUFFER_MIN];
+//static uint8_t m_scan_buffer_data[BLE_GAP_SCAN_BUFFER_MIN];
+static uint8_t m_scan_buffer_data[BIG_SCAN_BUFFER];
 static ble_data_t m_scan_buffer = {
     .p_data = m_scan_buffer_data,
     .len    = sizeof(m_scan_buffer_data)
@@ -52,11 +55,14 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
     (void)p_context;
 
+    ret_code_t err;
+
     switch (p_ble_evt->header.evt_id)
     {
-    case BLE_GAP_EVT_ADV_REPORT:
-    {
-        const ble_gap_evt_adv_report_t * r =
+        case BLE_GAP_EVT_ADV_REPORT:
+        {
+//            SEGGER_RTT_printf(0, "BLE_GAP_EVT_ADV_REPORT\n");          
+            const ble_gap_evt_adv_report_t * r =
             &p_ble_evt->evt.gap_evt.params.adv_report;
 
             bleadv_packet_t pkt;
@@ -73,16 +79,20 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             bleadv_queue_push(&pkt);
 
 //                bleadv_data_formater(r->data.p_data,r->data.len);
-        /* IMPORTANT:
-         * For passive scanning, SoftDevice requires restarting scan
-         * after each ADV report.
-         */
-        sd_ble_gap_scan_start(NULL, &m_scan_buffer);
-    }
-    break;
+            /* IMPORTANT:
+            * For passive scanning, SoftDevice requires restarting scan
+            * after each ADV report.
+            */
+            sd_ble_gap_scan_start(NULL, &m_scan_buffer);
 
-    default:
+            err = sd_ble_gap_scan_start(NULL, &m_scan_buffer);
+            if (err != NRF_SUCCESS && err != NRF_ERROR_INVALID_STATE)
+                SEGGER_RTT_printf(0, "scan restart err=0x%x\n", err);
+        }
         break;
+
+        default:
+            break;
     }
 }
 

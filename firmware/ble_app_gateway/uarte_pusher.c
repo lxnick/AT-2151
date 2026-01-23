@@ -60,8 +60,8 @@ void uarte_pusher_init(void)
     cfg.pseltxd = UARTE_TX_PIN;
     cfg.pselrxd = UARTE_RX_PIN;
     cfg.hwfc    = NRF_UARTE_HWFC_DISABLED;
- //   cfg.baudrate = NRF_UARTE_BAUDRATE_115200;
-    cfg.baudrate = NRF_UARTE_BAUDRATE_921600;
+    cfg.baudrate = NRF_UARTE_BAUDRATE_115200;
+ //   cfg.baudrate = NRF_UARTE_BAUDRATE_921600;
     cfg.interrupt_priority = 6;
 
     nrfx_uarte_init(&m_uarte, &cfg, uarte_evt_handler);
