@@ -6,5 +6,7 @@
 
 int bleadv_sniffer_start(void);
 
+void bleadv_sniffer_stack_init(void);
+
 
 #endif

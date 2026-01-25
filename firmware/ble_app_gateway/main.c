@@ -47,10 +47,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "nrf_delay.h"
+
+
 #include "nrf_sdh.h"
 #include "nrf_sdh_ble.h"
 #include "nrf_sdh_soc.h"
+
 #include "nrf_pwr_mgmt.h"
 #include "app_timer.h"
 #include "boards.h"
@@ -60,10 +62,12 @@
 #include "ble_hci.h"
 #include "ble_advertising.h"
 #include "ble_conn_params.h"
-#include "ble_db_discovery.h"
+//#include "ble_db_discovery.h"
 #include "ble_lbs_c.h"
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_scan.h"
+
+#include "nrf_delay.h"
 
 #include "ble_gap.h"
 #include "app_error.h"
@@ -84,11 +88,12 @@
 
 #include "seq_tracker.h"
 
+#include "led_status.h"
+
 #define TEST_UART_DIRECT    0
 #define TEST_BLE_SCAN       0
 
 #define TRACE_ADV_INFO      1
-
 
 /*
 nrfjprog --memrd 0x10001208
@@ -113,24 +118,59 @@ static void nfc_pin_check(void)
     }
 }
 
+static void timers_init(void)
+{
+    ret_code_t err = app_timer_init();
+    APP_ERROR_CHECK(err);
+}
+
+static void power_management_init(void)
+{
+	ret_code_t err_code;
+	err_code = nrf_pwr_mgmt_init();
+	APP_ERROR_CHECK(err_code);
+}
+
+
 int main(void)
 {
     SEGGER_RTT_Init();
     SEGGER_RTT_printf(0, "RTT Gateway!\n");    
 
+    bleadv_sniffer_stack_init();
+
     nfc_pin_check();
 
-    app_timer_init();
+    timers_init();
+ 	nrf_delay_ms(250);
+
+    led_status_init();
+ //   led_test();
+    led_set_onfoff(0,true); 
+
+    power_management_init();
+ 	nrf_delay_ms(250);  
+    
+    led_set_onfoff(1,true); 
+
+ //   led_status_init();
+ //   led_test();
+ //   led_status_heartbeat_start();
+//	nrf_delay_ms(250);
 
     bleadv_queue_init();    
     uarte_pusher_init();
+    led_set_onfoff(2,true); 
 
  #if TEST_BLE_SCAN   
     SEGGER_RTT_printf(0, "BLE scan!\n");   
     bleadv_scan_test();
  #else
-     SEGGER_RTT_printf(0, "BLE sniffer!\n");
+    SEGGER_RTT_printf(0, "BLE sniffer!\n");
     bleadv_sniffer_start();
+    led_set_onfoff(3,true); 
+
+  //   led_status_scan_start();
  #endif   
 
 
@@ -140,7 +180,7 @@ int main(void)
 
  //   int loop_count = 0;
  //    char buffer[128];
-     char sample[]="$$$x=61&y=-74&z=-21&gx=0&gy=0&gz=0&bt_addr=E4%3aC6%3aC6%3aA4%3a7B%3aCE&user_id=929a&upload_time=2026-01-22T10%3a30&battery=316###";
+     char sample[]="$$$x=61&y=-74&z=-21&gx=0&gy=0&gz=0&bt_addr=E4%3aC6%3aC6%3aA4%3a7B%3aCE&user_id=929c&upload_time=2026-01-22T10%3a30&battery=316###";
 
     while (true)
     {
@@ -152,6 +192,8 @@ int main(void)
     }
 
 #else
+
+    SEGGER_RTT_printf(0, "BLE snifLoop!\n");
     while (true)
     {
         bleadv_packet_t pkt;
@@ -162,8 +204,8 @@ int main(void)
        if (bleadv_queue_pop(&pkt))
         {
             /* 這裡才是安全區 */
-//            SEGGER_RTT_printf(0, "LOOP---------------\n");            
- //           SEGGER_RTT_printf(0, "ADV RSSI=%d len=%d\n", pkt.rssi, pkt.data_len);
+            SEGGER_RTT_printf(0, "LOOP---------------\n");            
+            SEGGER_RTT_printf(0, "ADV RSSI=%d len=%d\n", pkt.rssi, pkt.data_len);
 
 //            bleadv_dump_packet(&pkt);
 //            bleadv_packet_print(&pkt);

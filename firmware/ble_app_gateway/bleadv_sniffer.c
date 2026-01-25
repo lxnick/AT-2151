@@ -9,6 +9,7 @@
 #include "nrf_sdh.h"
 #include "nrf_sdh_ble.h"
 #include "nrf_sdh_soc.h"
+
 #include "nrf_pwr_mgmt.h"
 #include "app_timer.h"
 #include "boards.h"
@@ -18,7 +19,7 @@
 #include "ble_hci.h"
 #include "ble_advertising.h"
 #include "ble_conn_params.h"
-#include "ble_db_discovery.h"
+//#include "ble_db_discovery.h"
 #include "ble_lbs_c.h"
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_scan.h"
@@ -51,17 +52,18 @@ static ble_data_t m_scan_buffer = {
 
 /* ================= BLE Event Handler ================= */
 
-static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
+void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
     (void)p_context;
 
+    SEGGER_RTT_printf(0, "%s\n", __FUNCTION__);  
     ret_code_t err;
 
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_ADV_REPORT:
         {
-//            SEGGER_RTT_printf(0, "BLE_GAP_EVT_ADV_REPORT\n");          
+            SEGGER_RTT_printf(0, "BLE_GAP_EVT_ADV_REPORT\n");          
             const ble_gap_evt_adv_report_t * r =
             &p_ble_evt->evt.gap_evt.params.adv_report;
 
@@ -83,7 +85,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             * For passive scanning, SoftDevice requires restarting scan
             * after each ADV report.
             */
-            sd_ble_gap_scan_start(NULL, &m_scan_buffer);
+ //           sd_ble_gap_scan_start(NULL, &m_scan_buffer);
 
             err = sd_ble_gap_scan_start(NULL, &m_scan_buffer);
             if (err != NRF_SUCCESS && err != NRF_ERROR_INVALID_STATE)
@@ -97,20 +99,25 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 }
 
 /* ================= BLE Stack Init ================= */
-static void ble_stack_init(void)
+void bleadv_sniffer_stack_init(void)
 {
     ret_code_t err_code;
 
+    SEGGER_RTT_printf(0, "%s\n", __FUNCTION__);        
+
     err_code = nrf_sdh_enable_request();
+    SEGGER_RTT_printf(0, "nrf_sdh_enable_request  %d\n", err_code);    
     APP_ERROR_CHECK(err_code);
 
     uint32_t ram_start = 0;
     err_code = nrf_sdh_ble_default_cfg_set(APP_BLE_CONN_CFG_TAG,
                                           &ram_start);
+    SEGGER_RTT_printf(0, "nrf_sdh_ble_default_cfg_set %d ram 0x%08x\n", err_code, ram_start);                                              
     APP_ERROR_CHECK(err_code);
 
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
+    SEGGER_RTT_printf(0, "ble_stack_init 3 %d \n", err_code);      
 
     NRF_SDH_BLE_OBSERVER(m_ble_observer,
                          APP_BLE_OBSERVER_PRIO,
@@ -134,15 +141,19 @@ static void scan_start(void)
     ret_code_t err_code =
         sd_ble_gap_scan_start(&scan_params, &m_scan_buffer);
 
+    SEGGER_RTT_printf(0, "sd_ble_gap_scan_start %d \n", err_code);        
+
     APP_ERROR_CHECK(err_code);
 }
 
 
 int bleadv_sniffer_start(void)
 {
-    ble_stack_init();
+    SEGGER_RTT_printf(0, "%s\n", __FUNCTION__);       
+ //   ble_stack_init();
     scan_start();
 
+     SEGGER_RTT_printf(0, "%s done\n", bleadv_sniffer_start);         
     return 0;
 }
 
