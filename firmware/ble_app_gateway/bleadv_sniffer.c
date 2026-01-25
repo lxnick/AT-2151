@@ -117,7 +117,12 @@ void bleadv_sniffer_stack_init(void)
 
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
-    SEGGER_RTT_printf(0, "ble_stack_init 3 %d \n", err_code);      
+    SEGGER_RTT_printf(0, "ble_stack_init 3 %d \n", err_code); 
+    
+    // Print LFCLK
+    uint32_t lfclk = NRF_CLOCK->LFCLKSTAT;
+    SEGGER_RTT_printf(0, "LFCLKSTAT = 0x%08x\n", lfclk);    
+    
 
     NRF_SDH_BLE_OBSERVER(m_ble_observer,
                          APP_BLE_OBSERVER_PRIO,
