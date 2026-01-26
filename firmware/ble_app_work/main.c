@@ -123,6 +123,14 @@
 
 #define HEARTBEAT_INTERVAL APP_TIMER_TICKS(1000)
 
+enum TRIPOD_STATUS
+{
+    TRIPOD_ERROR,    
+    TRIPOD_INIT,
+    TRIPOD_STAND,
+    TRIPOD_TILT
+};
+
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);   
@@ -823,7 +831,7 @@ void PrintFloat(char* message, float value)
     SEGGER_RTT_printf(0, "%s %d.%03d\n", message, i, f);
 }
 
-
+#define SILENCE_RUN 1
 
 /**@brief Function for application main entry.
  */
@@ -834,6 +842,9 @@ int main(void)
     ret_code_t err_code;  
     float battery;
     float ax, ay, az;
+    int tilt_value;
+    enum TRIPOD_STATUS tripod_last = TRIPOD_INIT;
+    enum TRIPOD_STATUS tripod_new = TRIPOD_ERROR;
 
     bool erase_bonds;
 	SEGGER_RTT_printf(0, "Hello RTT!\n");
@@ -876,35 +887,66 @@ int main(void)
             m_heartbeat_flag = false;
             m_heartbeat_cnt++;
 
-            SEGGER_RTT_printf(0, "[HB] -------------------\n");            
-//           SEGGER_RTT_printf(0, "[HB] %lu sec, adv running\n", m_heartbeat_cnt);
-
+#if SILENCE_RUN           
+            ;
+#else
+            SEGGER_RTT_printf(0, "[HB] -------------------\n");     
+#endif                   
             m_custom_adv_payload.event ++;
-            SEGGER_RTT_printf(0, "[HB] Index %d\n", m_custom_adv_payload.event);
+
+//            SEGGER_RTT_printf(0, "[HB] Index %d\n", m_custom_adv_payload.event);
 
             battery = AnalogVoltageOneshot();
-            SEGGER_RTT_printf(0, "[HB] Voltage mv %d\n", (int) (battery * 1000) );
+
+ //           SEGGER_RTT_printf(0, "[HB] Voltage mv %d\n", (int) (battery * 1000) );
 
             m_custom_adv_payload.bat = manu_bat_to_uint8(  battery);
 
-            SEGGER_RTT_printf(0, "[HB] Voltage %d\n", m_custom_adv_payload.bat);
+ //           SEGGER_RTT_printf(0, "[HB] Voltage %d\n", m_custom_adv_payload.bat);
    
      		AccGyroInitialize(0x00);
             AccGyroOneshotAcc(&ax,&ay,&az); 
-            SEGGER_RTT_printf(0, "[HB] AX %d\n", (int)(ax * 1000) );     
-            SEGGER_RTT_printf(0, "[HB] AY %d\n", (int)(ay * 1000) );  
-            SEGGER_RTT_printf(0, "[HB] AZ %d\n", (int)(az * 1000) );  
+#if SILENCE_RUN           
+            ;
+#else            
+            SEGGER_RTT_printf(0, "[HB] AX %d\n", (int)(ax * 100) );     
+            SEGGER_RTT_printf(0, "[HB] AY %d\n", (int)(ay * 100) );  
+            SEGGER_RTT_printf(0, "[HB] AZ %d\n", (int)(az * 100) );  
+#endif
+
+            tilt_value = (az * 100);
+
+//            SEGGER_RTT_printf(0, "Tilt Value %d\n",tilt_value);
+            if ( tilt_value < 50 )
+            {
+//                SEGGER_RTT_printf(0, "TRIPOD_STAND\n");                
+                tripod_new =  TRIPOD_STAND;
+            }    
+            else
+            {
+//                SEGGER_RTT_printf(0, "TRIPOD_TILT\n");   
+                tripod_new = TRIPOD_TILT;
+            }
      
             m_custom_adv_payload.x = manu_imu_to_int8(  ax);   
             m_custom_adv_payload.y = manu_imu_to_int8(  ay); 
             m_custom_adv_payload.z = manu_imu_to_int8(  az); 
 
+#if SILENCE_RUN           
+            ;
+#else             
             SEGGER_RTT_printf(0, "[HB] XYZ %d,%d,%d\n", 
                 m_custom_adv_payload.x, 
                 m_custom_adv_payload.y, 
                 m_custom_adv_payload.z);
-    
-            advertising_update_mfg_data();
+#endif
+            if ( tripod_last != tripod_new )    
+            {    
+                advertising_update_mfg_data();
+                SEGGER_RTT_printf(0, "[Change] TRI %d\n", tripod_last); 
+            }               
+
+            tripod_last = tripod_new;
 
             // 這裡可以放：
             // - LED toggle
@@ -916,6 +958,35 @@ int main(void)
     }
 }
 
+#if 0
+#include "state_control.h"
+#include "ble_advertising.h"
+#include "nrf_pwr_mgmt.h"
+
+/* BLE advertising event handler */
+static void ble_adv_evt_handler(ble_adv_evt_t evt)
+{
+    StateCtrl_OnBleAdvEvent(evt);
+}
+
+int main(void)
+{
+    /* 基本初始化 */
+    nrf_pwr_mgmt_init();
+    ble_stack_init();
+    advertising_init(ble_adv_evt_handler);
+
+    /* State controller init */
+    StateCtrl_Init();
+
+    /* 主迴圈 */
+    for (;;)
+    {
+        StateCtrl_Process();
+    }
+}
+
+#endif
 
 /**
  * @}
