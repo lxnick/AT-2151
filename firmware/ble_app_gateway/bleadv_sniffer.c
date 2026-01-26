@@ -36,6 +36,9 @@
 #include "bleadv_formater.h"
 #include "bleadv_sniffer.h"
 #include "bleadv_queue.h"
+
+#include "led_status.h"
+
 /* ================= Configuration ================= */
 #define APP_BLE_CONN_CFG_TAG    1
 #define APP_BLE_OBSERVER_PRIO   3
@@ -63,6 +66,7 @@ void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     {
         case BLE_GAP_EVT_ADV_REPORT:
         {
+            led_blink_adv();
             SEGGER_RTT_printf(0, "BLE_GAP_EVT_ADV_REPORT\n");          
             const ble_gap_evt_adv_report_t * r =
             &p_ble_evt->evt.gap_evt.params.adv_report;

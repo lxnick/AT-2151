@@ -146,12 +146,12 @@ int main(void)
 
     led_status_init();
  //   led_test();
-    led_set_onfoff(0,true); 
+ //   led_set_onfoff(0,true); 
 
     power_management_init();
  	nrf_delay_ms(250);  
     
-    led_set_onfoff(1,true); 
+ //   led_set_onfoff(1,true); 
 
  //   led_status_init();
  //   led_test();
@@ -160,7 +160,7 @@ int main(void)
 
     bleadv_queue_init();    
     uarte_pusher_init();
-    led_set_onfoff(2,true); 
+//    led_set_onfoff(2,true); 
 
  #if TEST_BLE_SCAN   
     SEGGER_RTT_printf(0, "BLE scan!\n");   
@@ -168,9 +168,11 @@ int main(void)
  #else
     SEGGER_RTT_printf(0, "BLE sniffer!\n");
     bleadv_sniffer_start();
-    led_set_onfoff(3,true); 
+ //   led_set_onfoff(3,true); 
 
   //   led_status_scan_start();
+    led_system_on();
+    led_heartbeat_start();
  #endif   
 
 
@@ -232,7 +234,8 @@ int main(void)
             bleadv_packet_output(&format, buffer, sizeof(buffer));
 
 //            uarte_tx_send((uint8_t *)buffer, strlen(buffer));
-            uarte_pusher_push((uint8_t *)buffer, strlen(buffer));
+                uarte_pusher_push((uint8_t *)buffer, strlen(buffer));
+                led_blink_uart();
 
 
  //           SEGGER_RTT_printf(0, "%s\n",buffer);
