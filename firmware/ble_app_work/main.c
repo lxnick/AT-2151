@@ -123,9 +123,11 @@
 
 #define HEARTBEAT_INTERVAL APP_TIMER_TICKS(1000)
 
+#define UPSIDE_DOWN 1
+#define SILENCE_RUN 1
+
 enum TRIPOD_STATUS
 {
-    TRIPOD_ERROR,    
     TRIPOD_INIT,
     TRIPOD_STAND,
     TRIPOD_TILT
@@ -831,7 +833,7 @@ void PrintFloat(char* message, float value)
     SEGGER_RTT_printf(0, "%s %d.%03d\n", message, i, f);
 }
 
-#define SILENCE_RUN 1
+
 
 /**@brief Function for application main entry.
  */
@@ -844,7 +846,7 @@ int main(void)
     float ax, ay, az;
     int tilt_value;
     enum TRIPOD_STATUS tripod_last = TRIPOD_INIT;
-    enum TRIPOD_STATUS tripod_new = TRIPOD_ERROR;
+    enum TRIPOD_STATUS tripod_new ;
 
     bool erase_bonds;
 	SEGGER_RTT_printf(0, "Hello RTT!\n");
@@ -878,6 +880,8 @@ int main(void)
                                NULL);
     SEGGER_RTT_printf(0, "app_timer_start %d \n", err_code);
 
+    nrf_delay_ms(1000);
+
 
     // Enter main loop.
     for (;;)
@@ -906,6 +910,9 @@ int main(void)
    
      		AccGyroInitialize(0x00);
             AccGyroOneshotAcc(&ax,&ay,&az); 
+#if UPSIDE_DOWN              
+            az *= -1;
+#endif            
 #if SILENCE_RUN           
             ;
 #else            
@@ -915,9 +922,9 @@ int main(void)
 #endif
 
             tilt_value = (az * 100);
+            SEGGER_RTT_printf(0, "Tilt Value %d\n",tilt_value);
 
-//            SEGGER_RTT_printf(0, "Tilt Value %d\n",tilt_value);
-            if ( tilt_value < 50 )
+            if ( tilt_value < 60 )
             {
 //                SEGGER_RTT_printf(0, "TRIPOD_STAND\n");                
                 tripod_new =  TRIPOD_STAND;
@@ -943,7 +950,7 @@ int main(void)
             if ( tripod_last != tripod_new )    
             {    
                 advertising_update_mfg_data();
-                SEGGER_RTT_printf(0, "[Change] TRI %d\n", tripod_last); 
+                SEGGER_RTT_printf(0, "[Change] TRI %d\n", tripod_new); 
             }               
 
             tripod_last = tripod_new;
