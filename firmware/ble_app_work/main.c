@@ -873,7 +873,7 @@ int main(void)
     NRF_LOG_INFO("Template example started.");
     application_timers_start();
 
-    advertising_start(erase_bonds);
+//    advertising_start(erase_bonds);
 
    err_code = app_timer_start(m_heartbeat_timer,
                                HEARTBEAT_INTERVAL,
@@ -881,7 +881,7 @@ int main(void)
     SEGGER_RTT_printf(0, "app_timer_start %d \n", err_code);
 
     nrf_delay_ms(1000);
-
+  
 
     // Enter main loop.
     for (;;)
@@ -896,7 +896,7 @@ int main(void)
 #else
             SEGGER_RTT_printf(0, "[HB] -------------------\n");     
 #endif                   
-            m_custom_adv_payload.event ++;
+
 
 //            SEGGER_RTT_printf(0, "[HB] Index %d\n", m_custom_adv_payload.event);
 
@@ -949,51 +949,19 @@ int main(void)
 #endif
             if ( tripod_last != tripod_new )    
             {    
+                m_custom_adv_payload.event ++;
                 advertising_update_mfg_data();
                 SEGGER_RTT_printf(0, "[Change] TRI %d\n", tripod_new); 
             }               
 
             tripod_last = tripod_new;
-
-            // 這裡可以放：
-            // - LED toggle
-            // - 狀態統計
-            // - 之後要送 BLE notify 的 flag
         }
           
         idle_state_handle();
     }
 }
 
-#if 0
-#include "state_control.h"
-#include "ble_advertising.h"
-#include "nrf_pwr_mgmt.h"
 
-/* BLE advertising event handler */
-static void ble_adv_evt_handler(ble_adv_evt_t evt)
-{
-    StateCtrl_OnBleAdvEvent(evt);
-}
-
-int main(void)
-{
-    /* 基本初始化 */
-    nrf_pwr_mgmt_init();
-    ble_stack_init();
-    advertising_init(ble_adv_evt_handler);
-
-    /* State controller init */
-    StateCtrl_Init();
-
-    /* 主迴圈 */
-    for (;;)
-    {
-        StateCtrl_Process();
-    }
-}
-
-#endif
 
 /**
  * @}
