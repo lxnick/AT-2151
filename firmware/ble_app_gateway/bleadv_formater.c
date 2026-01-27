@@ -334,8 +334,8 @@ void bleadv_packet_output(bleadv_format_data* format, char* buffer, int size)
     int ay = (int)(format->ay * 100); 
     int az = (int)(format->az * 100); 
 
-    snprintf(buffer,size,"$$$x=%d&y=%d&z=%d&gx=%d&gy=%d&gz=%d&bt_addr=%s&user_id=%04x&upload_time=%s&battery=%d###",
- //       format->event,
+    snprintf(buffer,size,"$$$index=%d&x=%d&y=%d&z=%d&gx=%d&gy=%d&gz=%d&bt_addr=%s&user_id=%04x&upload_time=%s&battery=%d###",
+           format->event,
         ax,ay,az,0,0,0,format->bt_addr,format->device_id, "2026-01-22T10:30" , voltage);   
 }
 
