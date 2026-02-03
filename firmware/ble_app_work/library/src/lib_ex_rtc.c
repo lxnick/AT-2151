@@ -23,11 +23,24 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
+#include "nrf_drv_twi.h"
 #include "lib_ex_rtc.h"
-#include "state_control.h"
-#include "lib_fifo.h"
-#include "ble_definition.h"
+//#include "state_control.h"
+//#include "lib_fifo.h"
+//#include "ble_definition.h"
 #include "lib_trace_log.h"
+
+#include "pin_config.h"
+
+#define DEFAULT_YEAR						(26)
+#define DEFAULT_MONTH						(1)
+#define DEFAULT_DAY							(1)
+#define DEFAULT_HOUR						(0)
+#define DEFAULT_MIN							(0)
+#define DEFAULT_SEC							(0)
+#define DEFAULT_WEEKDAYS					(0x06)
+
+
 
 /* Definition ------------------------------------------------------------*/
 #define WAIT_EVENT_INTERVAL		(100000)		/* I2Cの応答待ち時間 */
@@ -80,7 +93,7 @@ static void i2c_err_check(nrfx_err_t err, uint16_t line)
 	{
 		/*trace log*/
 		TRACE_LOG(TR_I2C_ERROR,line);
-		SetBleErrReadCmd(UTC_BLE_I2C_ERROR);
+//		SetBleErrReadCmd(UTC_BLE_I2C_ERROR);
 		DEBUG_LOG( LOG_ERROR,"I2C err. err_code 0x%x, line %d",err, line );
 	}
 }
@@ -98,13 +111,13 @@ static ret_code_t i2c_init(void)
 #ifdef 	TEST_I2C_INIT_ERROR
 	ret_code_t tmp_err_code;
 	tmp_err_code = NRF_ERROR_BUSY;
-	SetBleErrReadCmd(UTC_BLE_I2C_INIT_ERROR);
+//	SetBleErrReadCmd(UTC_BLE_I2C_INIT_ERROR);
 #endif
 	err_code = nrf_drv_twi_init(&gRtc_twi, &twi_config, twi_event_handler, NULL);
 	if(err_code != NRF_SUCCESS)
 	{
 		TRACE_LOG(TR_I2C_INIT_ERROR, 0);
-		SetBleErrReadCmd(UTC_BLE_I2C_INIT_ERROR);
+//		SetBleErrReadCmd(UTC_BLE_I2C_INIT_ERROR);
 	}
 	nrf_drv_twi_enable(&gRtc_twi);
 	
@@ -462,7 +475,7 @@ static uint8_t ex_rtc_os_flag_clear(void)
 {
 	volatile ret_code_t err_code;
 	volatile uint8_t buf;
-	volatile uint8_t rtccheck;
+//	volatile uint8_t rtccheck;
 	volatile uint8_t ret;
 	
 	err_code = i2c_read( RTC_SLAVE_ADD, RTC_CTRL_REG2, (uint8_t*)&buf, sizeof( buf ) );
@@ -470,7 +483,7 @@ static uint8_t ex_rtc_os_flag_clear(void)
 	
 	/* 読みだしたデータを反転して書き込む */
 	/* Control Register2を0クリアする */
-	buf = buf & ~OSC_CLEAR_MASK;
+	buf = buf & (uint8_t) ~OSC_CLEAR_MASK;
 	
 	err_code = i2c_write( RTC_SLAVE_ADD, RTC_CTRL_REG2, (uint8_t*)&buf, sizeof( buf ) );
 	i2c_err_check(err_code,__LINE__);
@@ -491,7 +504,7 @@ static ret_code_t ex_rtc_alert_set( uint8_t reg )
 {
 	volatile ret_code_t err_code;
 	volatile uint8_t reg_data = 0;
-	volatile uint8_t ctrlreg1 = 0;
+//	volatile uint8_t ctrlreg1 = 0;
 	
 	/* 割り込み設定 */
 	reg_data = reg;
@@ -512,10 +525,14 @@ static ret_code_t ex_rtc_alert_set( uint8_t reg )
  */
 static void rtc_int_evt_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
+	NRF_LOG_INFO("%s", __FUNCTION__);		
 	/*ex rtc Interrupt event handler not use UART*/
+#if 0	
 	EVT_ST evt;
 	uint32_t err_fifo;
+#endif	
 	ret_code_t err_code;
+#if 0
 	bool uart_output_enable;
 
 	uart_output_enable = GetUartOutputStatus();
@@ -527,7 +544,7 @@ static void rtc_int_evt_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t act
 	evt.evt_id = EVT_RTC_INT;
 	err_fifo = PushFifo(&evt);
 	DEBUG_EVT_FIFO_LOG(err_fifo, evt.evt_id);
-
+#endif	
 	err_code = i2c_init();
 	if(err_code == NRF_SUCCESS)
 	{
@@ -542,15 +559,16 @@ static void rtc_int_evt_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t act
 	else
 	{
 		TRACE_LOG(TR_I2C_EVT_INT_INIT_ERROR, 0);
-		SetBleErrReadCmd(UTC_BLE_I2C_INIT_ERROR);
+//		SetBleErrReadCmd(UTC_BLE_I2C_INIT_ERROR);
 		DEBUG_LOG(LOG_ERROR,"rtc_int_evt_handler i2c init err");
 		//sd_nvic_SystemReset();
 	}
-
+#if 0
 	if(uart_output_enable == false)
 	{
 		LibUartDisable();
 	}
+#endif		
 }
 
 /**
@@ -560,7 +578,7 @@ static void rtc_int_evt_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t act
  */
 static void ex_rtc_int_set(void)
 {
-	volatile ret_code_t err_code;
+//	volatile ret_code_t err_code;
 	nrfx_gpiote_in_config_t rtc_init_config;
 	
 	rtc_init_config.pull  = NRF_GPIO_PIN_PULLUP;
@@ -569,8 +587,9 @@ static void ex_rtc_int_set(void)
 	rtc_init_config.hi_accuracy = 0;
 	rtc_init_config.skip_gpio_setup = false;
 	
-	err_code = nrfx_gpiote_in_init(RTC_INT_PIN, &rtc_init_config, rtc_int_evt_handler);
-	LIB_ERR_CHECK(err_code, GPIOTE_INT_RTC_SET, __LINE__);
+//	err_code = nrfx_gpiote_in_init(RTC_INT_PIN, &rtc_init_config, rtc_int_evt_handler);
+	nrfx_gpiote_in_init(RTC_INT_PIN, &rtc_init_config, rtc_int_evt_handler);
+//	LIB_ERR_CHECK(err_code, GPIOTE_INT_RTC_SET, __LINE__);
 }
 
 /**
@@ -599,7 +618,7 @@ uint32_t ExRtcAlarmDisableClear(uint32_t pre_err)
 			{
 				DEBUG_LOG(LOG_ERROR,"RTC Reset err. i2c write err");
 				device_err = UTC_I2C_ERROR;
-				SetBleErrReadCmd((uint8_t)UTC_BLE_I2C_INIT_ERROR);
+//				SetBleErrReadCmd((uint8_t)UTC_BLE_I2C_INIT_ERROR);
 				TRACE_LOG(TR_RTC_RESET_FAIL,0);
 			}
 			else
@@ -639,14 +658,12 @@ void ExRtcSetDateTime(DATE_TIME *pdatetime)
 		if(err_code != NRF_SUCCESS)
 		{
 			TRACE_LOG(TR_RTC_SET_TIME_ERROR,0);
-			SetBleErrReadCmd(UTC_BLE_TIME_UPDATE_ERROR);
+//			SetBleErrReadCmd(UTC_BLE_TIME_UPDATE_ERROR);
 		}
 		i2c_uninit();
 	}
 	else
 	{
-		TRACE_LOG(TR_RTC_SET_TIME_ERROR,1);
-		SetBleErrReadCmd(UTC_BLE_TIME_UPDATE_ERROR);
 	}
 }
 
@@ -666,17 +683,16 @@ ret_code_t ExRtcGetDateTime(DATE_TIME *pdatetime)
 		i2c_err_check(err_code,__LINE__);
 		if(err_code != NRF_SUCCESS)
 		{	
-			DEBUG_LOG( LOG_ERROR, "i2c_read() [0x%x] Cmd error: 0x%x", RTC_SECONDS, err_code );
+			NRF_LOG_INFO(  "i2c_read() [0x%x] Cmd error: 0x%x", RTC_SECONDS, err_code );
 			/*trace log*/
 			/*I2C read error*/
-			TRACE_LOG(TR_I2C_GET_TIME_ERROR,0);
-			SetBleErrReadCmd(UTC_BLE_I2C_ERROR);
+//			SetBleErrReadCmd(UTC_BLE_I2C_ERROR);
 		}
 		else
 		{
 			//Binary -> DEC
 			date_btod_convert(pdatetime);
-			DEBUG_LOG( LOG_INFO, "Get RTC Time. YY %u, MM %u, DD %u, hh %u, mm %u, ss %u", pdatetime->year, pdatetime->month,pdatetime->day, pdatetime->hour, pdatetime->min, pdatetime->sec );
+//			NRF_LOG_INFO( "Get RTC Time. YY %u, MM %u, DD %u, hh %u, mm %u, ss %u", pdatetime->year, pdatetime->month,pdatetime->day, pdatetime->hour, pdatetime->min, pdatetime->sec );
 		}
 
 //debug test		
@@ -690,9 +706,8 @@ ret_code_t ExRtcGetDateTime(DATE_TIME *pdatetime)
 	else
 	{
 		/*trace log*/
-		TRACE_LOG(TR_I2C_GET_TIME_ERROR,1);
 		/*I2C init error*/
-		DEBUG_LOG(LOG_ERROR,"get rtc datetime i2c init err");
+		NRF_LOG_INFO("get rtc datetime i2c init err");
 	}
 	
 	return err_code;
@@ -712,13 +727,15 @@ bool ExRtcOscCheck(void)
 	
 	osc_stopped_flag = true;
 	
+    NRF_LOG_INFO("%s", __FUNCTION__);  
+	
 	err_code = i2c_init();
 	if(err_code == NRF_SUCCESS)
 	{
 		// ex RTC OSC stabilaization check
 		rtcOSC = ex_rtc_os_flag_check();
 		//DEBUG_LOG(LOG_DEBUG, "curr OSC flag 0x%x", rtcOSC);
-		DEBUG_LOG( LOG_INFO, "curr OSC flag 0x%x", rtcOSC );
+		NRF_LOG_INFO(  "curr OSC flag 0x%x", rtcOSC );
 		if(RTC_OSC_CLEARED != rtcOSC)
 		{
 			osc_stopped_flag = true;
@@ -728,10 +745,12 @@ bool ExRtcOscCheck(void)
 				rtcOSC = ex_rtc_os_flag_clear();
 				if(RTC_OSC_CLEARED  == rtcOSC)
 				{
-					DEBUG_LOG(LOG_DEBUG,"exRTC OSC flag clear");
+					NRF_LOG_INFO("exRTC OSC flag clear");
 					break;
 				}
-				TRACE_LOG(TR_RTC_OSC_FLAG_ERROR,0);
+
+				NRF_LOG_INFO("TR_RTC_OSC_FLAG_ERROR 0");
+//				TRACE_LOG(TR_RTC_OSC_FLAG_ERROR,0);
 			}			
 		}
 		else
@@ -742,7 +761,8 @@ bool ExRtcOscCheck(void)
 	}
 	else
 	{
-		TRACE_LOG(TR_RTC_OSC_FLAG_ERROR,1);
+//		TRACE_LOG(TR_RTC_OSC_FLAG_ERROR,1);
+		NRF_LOG_INFO("TR_RTC_OSC_FLAG_ERROR 1");		
 	}
 	
 	return osc_stopped_flag;
@@ -770,7 +790,7 @@ uint32_t ExRtcSetUp(uint32_t pre_err)
 			if ( g_rtc_wakeup == true )
 			{
 				g_rtc_wakeup = false;
-				DEBUG_LOG( LOG_INFO, "!!! Clear Interrupt Flag !!!" );
+//				NRF_LOG_INFO( "!!! Clear Interrupt Flag !!!" );
 				// Alarm flag clear
 				ex_rtc_alarm_flag_clear();
 			}
@@ -796,15 +816,14 @@ uint32_t ExRtcSetUp(uint32_t pre_err)
 		
 		if(rtc_err != UTC_SUCCESS)
 		{
-			DEBUG_LOG(LOG_ERROR,"exRTC Set Up Error");
-			TRACE_LOG(TR_RTC_INIT_FAIL,0);
+			NRF_LOG_INFO("exRTC Set Up Error");
+//			NRF_LOG_INFO("TR_RTC_INIT_FAIL,0");
 			rtc_err = UTC_I2C_ERROR;
-			SetBleErrReadCmd((uint8_t)UTC_BLE_I2C_INIT_ERROR);
+//			SetBleErrReadCmd((uint8_t)UTC_BLE_I2C_INIT_ERROR);
 		}
 		else
 		{
-			TRACE_LOG(TR_RTC_INIT_CMPL,0);
-			DEBUG_LOG(LOG_INFO,"exRTC Set Up");
+			NRF_LOG_INFO("exRTC Set Up");
 		}
 	}
 	else
@@ -840,21 +859,20 @@ void ExRtcSetDefaultDateTime( void )
 	err_code = i2c_init();
 	if(err_code == NRF_SUCCESS)
 	{
-		DEBUG_LOG( LOG_INFO, "%d.%d.%d %d:%d:%d", default_time.year, default_time.month, default_time.day, default_time.hour, default_time.min, default_time.sec );
+		NRF_LOG_INFO( "%d.%d.%d %d:%d:%d", default_time.year, default_time.month, default_time.day, default_time.hour, default_time.min, default_time.sec );
 		
 		err_code = i2c_write( RTC_SLAVE_ADD, RTC_SECONDS, (uint8_t*)&default_time, sizeof(DATE_TIME));
 		i2c_err_check(err_code,__LINE__);
 		if(err_code != NRF_SUCCESS)
 		{
-			DEBUG_LOG( LOG_ERROR,"exRTC Default Time Error");
-			TRACE_LOG( TR_RTC_SET_DEFTIME_ERROR, 0 );
+			NRF_LOG_ERROR( "exRTC Default Time Error");
 		}
 		
 		i2c_uninit();
 	}
 	else
 	{
-		TRACE_LOG(TR_RTC_SET_TIME_ERROR,1);
+
 	}
 }
 
@@ -980,11 +998,13 @@ bool ExRtcWakeUpCheck( void )
 	uint32_t read_state = 0;
 	bool state = false;
 	
+    NRF_LOG_INFO("%s", __FUNCTION__);  	
+	
 	/* RTC Interrupt確認 */
 	read_state = nrf_gpio_pin_latch_get( RTC_INT_PIN );
 	if ( read_state == 1 )
 	{
-		DEBUG_LOG( LOG_INFO, "!!! RTC Int WakeUp !!!" );
+		NRF_LOG_INFO( "!!! RTC Int WakeUp !!!" );
 		/* RTC割込での起動 */
 		g_rtc_wakeup = true;
 		/* RTC WakeUp */
@@ -1044,3 +1064,100 @@ bool ExRtcCheckDateTime( DATE_TIME *p_currnet_time,  DATE_TIME *p_flash_time )
 }
 /* 2022.07.21 Add RTC異常検知のため -- */
 
+/*
+typedef struct _data_time
+{
+	uint8_t sec;
+	uint8_t min;
+	uint8_t hour;
+	uint8_t week;
+	uint8_t day;
+	uint8_t month;
+	uint8_t year;
+} DATE_TIME, *PDATE_TIME;
+*/
+
+char buffer[32];
+void ExDumpDatetime(DATE_TIME * pdate)
+{
+
+	sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", pdate->year, pdate->month, pdate->day, pdate->hour, pdate->min, pdate->sec); 
+
+	NRF_LOG_INFO(buffer);  	
+
+}
+
+void ExRtcPrintTime(void)
+{
+	DATE_TIME date_info;
+
+	ret_code_t err_code = ExRtcGetDateTime(&date_info);
+	if ( NRF_SUCCESS == err_code )
+	{
+    	NRF_LOG_INFO("Datetime %04d-%02d-%02d %02d:%02d:%02d",
+			date_info.year,
+			date_info.month,
+			date_info.day,
+			date_info.hour,
+			date_info.min,
+			date_info.sec);
+	}	
+	else
+	{	
+    	NRF_LOG_INFO("ExRtcGetDateTime() failed");	
+	}
+}
+
+void ExRtcTest(void)
+{
+    NRF_LOG_INFO("%s", __FUNCTION__);  
+
+	bool rtc_wakeup = ExRtcWakeUpCheck();	
+	(void)rtc_wakeup;
+
+	ExRtcOscCheck();	
+
+	uint32_t rtc_setup = ExRtcSetUp(UTC_SUCCESS);	
+    NRF_LOG_INFO("ExRtcSetUp = %d, UTC_SUCCESS = %d", rtc_setup, UTC_SUCCESS);  	
+
+    	if (!rtc_wakeup)
+    	{
+        	ExRtcSetDefaultDateTime();
+		}
+
+
+		DATE_TIME date_info;
+		ret_code_t err_code;		
+		err_code = ExRtcGetDateTime(&date_info);
+		(void) err_code;
+
+		ExDumpDatetime(&date_info);
+
+	#if 0
+//	while( 1 )
+//		{		
+	    bool rtc_wakeup = ExRtcWakeUpCheck();
+
+    	ExRtcSetUp(UTC_SUCCESS);
+
+    	if (!rtc_wakeup)
+    	{
+        	ExRtcSetDefaultDateTime();
+		}
+
+		DATE_TIME date_info;
+	
+		ret_code_t err_code;		
+		err_code = ExRtcGetDateTime(&date_info);
+//		 ExRtcGetDateTime(&date_info);
+
+//		ExDumpDatetime(&date_info);
+		if ( err_code != NRF_SUCCESS )
+		{
+			return ;
+			}
+
+		nrf_delay_ms( 1000 );
+//	}		
+#endif
+}

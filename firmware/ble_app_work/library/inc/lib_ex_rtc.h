@@ -230,5 +230,9 @@ bool ExRtcWakeUpCheck( void );
 bool ExRtcCheckDateTime( DATE_TIME *p_currnet_time,  DATE_TIME *p_flash_time );
 /* 2022.07.21 Add RTC異常検知のため -- */
 
+void ExRtcTest(void);
+void ExRtcPrintTime(void);
+
+
 #endif
 

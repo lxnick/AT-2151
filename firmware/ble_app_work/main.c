@@ -91,6 +91,7 @@
 
 #include "lib_icm42607.h"
 #include "lib_adc.h"
+#include "lib_ex_rtc.h"
 
 #define DEVICE_NAME                     "B51"                       /**< Name of device. Will be included in the advertising data. */
 
@@ -728,6 +729,8 @@ static void buttons_leds_init(bool * p_erase_bonds)
  */
 static void log_init(void)
 {
+   SEGGER_RTT_printf(0, "log_init() called\n");
+
     ret_code_t err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
 
@@ -853,13 +856,20 @@ int main(void)
     m_custom_adv_payload.device_id = get_device_id();
 
     SEGGER_RTT_printf(0, "DEVICE ID %08x \n", m_custom_adv_payload.device_id );
-    SEGGER_RTT_printf(0, "DEVICE_NAME %s \n", DEVICE_NAME);
+//    SEGGER_RTT_printf(0, "%s[%08x ]DEVICE_NAME %s \n", DEVICE_NAME);
+    NRF_LOG_INFO("%s[%08x]", DEVICE_NAME,  m_custom_adv_payload.device_id );
 
     // Initialize.
     log_init();
     timers_init();
     buttons_leds_init(&erase_bonds);
     power_management_init();
+
+  //  NRF_LOG_INFO("NRF_LOG_INFO");  
+  //  NRF_LOG_ERROR("NRF_LOG_ERROR");      
+  //  SEGGER_RTT_printf(0, "SEGGER_RTT_printf\n");    
+
+    // BLE start
     ble_stack_init();
     gap_params_init();
     gatt_init();
@@ -873,7 +883,10 @@ int main(void)
     NRF_LOG_INFO("Template example started.");
     application_timers_start();
 
-//    advertising_start(erase_bonds);
+#if 1 // RTC
+    ExRtcTest();
+ 
+#endif
 
    err_code = app_timer_start(m_heartbeat_timer,
                                HEARTBEAT_INTERVAL,
@@ -955,6 +968,8 @@ int main(void)
             }               
 
             tripod_last = tripod_new;
+
+            ExRtcPrintTime();
         }
           
         idle_state_handle();
