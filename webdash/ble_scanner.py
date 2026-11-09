@@ -6,7 +6,7 @@ from model import DeviceState
 # ====== 依你的協定調整 ======
 MANUFACTURER_ID = 0xFFFF
 APP_ID = 0x3412          # <- 改成你的 2-byte APP_ID
-NAME_PREFIX = "BLE Badge"  # <- 裝置名稱前綴
+NAME_PREFIX = "B51"  # <- 裝置名稱前綴
 # ===========================
 
 # 全域裝置表（被 Web 讀取）
@@ -40,10 +40,12 @@ def parse_manufacturer_data(md: dict[int, bytes]):
     device_id = int.from_bytes(data[2:6], "little")       
 
     event = data[6]
-    posture = data[7]
-    
-    flags = data[3] if len(data) >= 4 else 0
-    return device_id, event, posture, flags
+    x = data[7]
+    y = data[8]
+    z = data[9]
+    bat = data[10]    
+
+    return device_id, event, x, y, z, bat
 
 async def scan_forever():
     def detection_callback(device, advertisement_data):
@@ -56,14 +58,14 @@ async def scan_forever():
         if parsed is None:
             return
 
-        device_id, event, posture, flags = parsed
+        device_id, event, x, y, z, bat = parsed
         rssi = advertisement_data.rssi  # ✅ Windows/WinRT 正確來源
 
         async def update():
             async with _devices_lock:
                 if device.address not in devices:
                     devices[device.address] = DeviceState(address=device.address, name=device.name, device_id=device_id)
-                devices[device.address].touch(event=event,posture = posture, rssi=rssi, flags=flags)
+                devices[device.address].touch(event=event,x = x, y =y, z = z, bat = bat, rssi=rssi)
 
         # callback 不能 await，丟回 event loop
         asyncio.get_running_loop().create_task(update())

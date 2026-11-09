@@ -38,8 +38,8 @@
         <th>Name</th>
         <th>Device ID</th> 
         <th>Address</th>
-        <th>Event</th>
-        <th>Posture</th>    
+        <th>Index</th>
+        <th>Z</th>    
         <th>Flags</th> 
         <th class="right">RSSI</th>
         <th class="right">Last Seen (s)</th>
@@ -76,15 +76,16 @@
     return `<span class="${v[1]}">${v[0]}</span>`;
   }
 
-  function postureCell(posture){
-    if (posture === null || posture === undefined) {
-      return `<span class="dim">--</span>`;
-    }
-
-    // 直接顯示十進位整數
-    return `<span class="mono">${posture}</span>`;
+function zCell(z) {
+  console.log('zCell z =', z);
+   console.log('zCell z =', z);
+  if (z === null || z === undefined) {
+    return `<span class="dim">--</span>`;
   }
 
+
+  return `<span class="mono">${z}</span>`;
+}
 
   function flagsCell(flags){
     if (flags === null || flags === undefined) {
@@ -129,7 +130,7 @@
         </td>
         <td class="mono dim">${d.address ?? ""}</td>
         <td>${eventCell(d.event)}</td>
-        <td>${postureCell(d.posture)}</td>
+        <td>${zCell(d.z)}</td>
         <td>${flagsCell(d.flags)}</td> 
         <td class="right mono ${rssiClass(d.rssi)}">${d.rssi ?? "--"}</td>
         <td class="right mono">${(d.age ?? 9999).toFixed(1)}</td>
